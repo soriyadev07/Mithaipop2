@@ -1,0 +1,6 @@
+{
+  "name": "Mithai Pop",
+  "description": "मिठाई POP: Fusion indian desserts in a Soda Can — modern Indian fusion desserts in collectible cans.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
