@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import {
   OrderConfirmation,
   PreOrder,
@@ -8,6 +8,7 @@ import {
   GiftOrderRecord,
   AppNotification,
   ActivityLog,
+  SupportTicket,
   StoreSettings,
   OrderStatus,
   PreOrderStatus,
@@ -21,12 +22,20 @@ import {
   INITIAL_GIFT_ORDERS,
   INITIAL_NOTIFICATIONS,
   INITIAL_ACTIVITY_LOGS,
+  INITIAL_SUPPORT_TICKETS,
   INITIAL_SETTINGS,
   ANALYTICS_DATA
 } from '../data/mockStoreData';
 import { PRODUCTS as INITIAL_PRODUCTS } from '../data/products';
 import { REVIEWS as INITIAL_REVIEWS } from '../data/reviews';
 import { sounds } from '../utils/audio';
+import {
+  supabase,
+  isSupabaseConfigured,
+  mapDbRowToProduct,
+  mapProductToDbRow,
+  generateSlug
+} from '../lib/supabase';
 
 interface StoreDataContextType {
   orders: OrderConfirmation[];
@@ -43,7 +52,19 @@ interface StoreDataContextType {
   setAnalyticsTimeframe: (tf: 'today' | '7d' | '30d' | '3m') => void;
   getAnalytics: () => typeof ANALYTICS_DATA['today'];
   
+  // Database Status
+  isDatabaseConnected: boolean;
+  isLoadingProducts: boolean;
+  reloadProductsFromDatabase: () => Promise<void>;
+
+  // Public Product Getters
+  getPublicProducts: () => Product[];
+  getBestSellerProducts: () => Product[];
+  getFeaturedProducts: () => Product[];
+  getProductBySlug: (slug: string) => Product | undefined;
+
   // Order actions
+  createOrder: (order: OrderConfirmation) => void;
   addOrder: (order: OrderConfirmation) => void;
   updateOrderStatus: (orderId: string, newStatus: OrderStatus, adminName?: string, note?: string) => void;
   cancelOrder: (orderId: string, reason: string, adminName?: string) => void;
@@ -57,10 +78,15 @@ interface StoreDataContextType {
   notifyPreOrderCustomer: (id: string, message: string) => void;
   cancelPreOrder: (id: string, reason: string, adminName?: string) => void;
   
-  // Product actions
-  addProduct: (product: Omit<Product, 'id'>) => Product;
-  updateProduct: (id: string, product: Partial<Product>) => void;
-  deleteProduct: (id: string) => void;
+  // Product actions (Database + Realtime State)
+  addProduct: (product: Omit<Product, 'id'>, adminName?: string) => Promise<Product> | Product;
+  updateProduct: (id: string, product: Partial<Product>, adminName?: string) => Promise<void> | void;
+  deleteProduct: (id: string, adminName?: string) => { success: boolean; message?: string };
+  archiveProduct: (id: string, adminName?: string) => Promise<void> | void;
+  restoreProduct: (id: string, adminName?: string) => Promise<void> | void;
+  duplicateProduct: (id: string, adminName?: string) => Promise<Product> | Product;
+  bulkUpdateProducts: (ids: string[], updates: Partial<Product>, adminName?: string) => Promise<void> | void;
+  quickUpdateProduct: (id: string, updates: Partial<Product>, adminName?: string) => Promise<void> | void;
   
   // Inventory actions
   adjustStock: (productId: string, delta: number, reason: string, adminName?: string) => void;
@@ -78,6 +104,14 @@ interface StoreDataContextType {
   
   // Gift Order actions
   updateGiftOrderStatus: (id: string, status: GiftOrderRecord['status']) => void;
+
+  // Support Ticket actions
+  supportTickets: SupportTicket[];
+  createSupportTicket: (ticket: Partial<SupportTicket>, initialMessage: string) => SupportTicket;
+  updateTicketStatus: (id: string, status: SupportTicket['status'], adminName?: string) => void;
+  addTicketReply: (id: string, message: string, sender: 'admin' | 'customer', senderName: string) => void;
+  addTicketInternalNote: (id: string, note: string, adminName?: string) => void;
+  assignTicket: (id: string, assignedTo: string, adminName?: string) => void;
   
   // Notification actions
   markNotificationRead: (id: string) => void;
@@ -88,12 +122,15 @@ interface StoreDataContextType {
   updateSettings: (newSettings: Partial<StoreSettings>) => void;
   
   // CSV Export utility
-  exportDataToCSV: (type: 'orders' | 'preorders' | 'inventory' | 'customers' | 'coupons') => void;
+  exportDataToCSV: (type: 'orders' | 'preorders' | 'inventory' | 'customers' | 'coupons' | 'payments' | 'products') => void;
 }
 
 const StoreDataContext = createContext<StoreDataContextType | undefined>(undefined);
 
 export const StoreDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const isDatabaseConnected = isSupabaseConfigured();
+  const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+
   // Orders
   const [orders, setOrders] = useState<OrderConfirmation[]>(() => {
     try {
@@ -112,21 +149,30 @@ export const StoreDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return INITIAL_PREORDERS;
   });
 
-  // Products
+  // Products (Database & Local Synced)
   const [products, setProducts] = useState<Product[]>(() => {
     try {
       const stored = localStorage.getItem('mithai_pop_products');
-      if (stored) return JSON.parse(stored);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
     } catch {}
     return INITIAL_PRODUCTS.map((p, idx) => ({
       ...p,
-      sku: `MP-${p.name.substring(0, 2).toUpperCase()}-00${idx + 1}`,
-      category: idx < 3 ? 'Classic Fusion' : 'City Edition',
-      inventoryCount: idx === 0 ? 12 : idx === 2 ? 9 : 45,
-      lowStockThreshold: 15,
-      isFeatured: idx < 3,
-      isBestSeller: idx === 0 || idx === 2,
-      isAvailableForPreOrder: false
+      slug: p.slug || generateSlug(p.name),
+      sku: p.sku || `MP-${p.name.substring(0, 2).toUpperCase()}-00${idx + 1}`,
+      category: p.category || (idx < 3 ? 'Classic Fusion' : 'City Edition'),
+      inventoryCount: p.inventoryQuantity ?? (idx === 0 ? 12 : idx === 2 ? 9 : 45),
+      inventoryQuantity: p.inventoryQuantity ?? (idx === 0 ? 12 : idx === 2 ? 9 : 45),
+      lowStockThreshold: p.lowStockThreshold || 15,
+      isFeatured: p.isFeatured !== undefined ? p.isFeatured : idx < 3,
+      isBestSeller: p.isBestSeller !== undefined ? p.isBestSeller : (idx === 0 || idx === 2),
+      isAvailableForPreOrder: p.isPreorder ?? false,
+      isPreorder: p.isPreorder ?? false,
+      isActive: p.isActive !== undefined ? p.isActive : true,
+      isArchived: p.isArchived ?? false,
+      displayOrder: p.displayOrder ?? (idx + 1)
     }));
   });
 
@@ -139,6 +185,65 @@ export const StoreDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return INITIAL_INVENTORY;
   });
 
+  // Fetch / Sync Products from Supabase on mount if configured
+  const reloadProductsFromDatabase = useCallback(async () => {
+    if (!supabase || !isDatabaseConnected) return;
+
+    try {
+      setIsLoadingProducts(true);
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .order('display_order', { ascending: true });
+
+      if (error) {
+        console.warn('Supabase fetch error:', error.message);
+        return;
+      }
+
+      if (data && data.length > 0) {
+        const mapped = data.map(mapDbRowToProduct);
+        setProducts(mapped);
+        try {
+          localStorage.setItem('mithai_pop_products', JSON.stringify(mapped));
+        } catch {}
+      } else if (data && data.length === 0 && products.length > 0) {
+        // First-time migration: seed Supabase with initial catalog products
+        const rowsToInsert = products.map(mapProductToDbRow);
+        await supabase.from('products').insert(rowsToInsert);
+      }
+    } catch (err) {
+      console.warn('Failed to load products from Supabase:', err);
+    } finally {
+      setIsLoadingProducts(false);
+    }
+  }, [isDatabaseConnected]);
+
+  useEffect(() => {
+    reloadProductsFromDatabase();
+  }, [reloadProductsFromDatabase]);
+
+  // Public Getters
+  const getPublicProducts = useCallback(() => {
+    return products.filter((p) => p.isActive !== false && !p.isArchived);
+  }, [products]);
+
+  const getBestSellerProducts = useCallback(() => {
+    const active = products.filter((p) => p.isActive !== false && !p.isArchived);
+    const best = active.filter((p) => p.isBestSeller);
+    return best.length > 0 ? best : active.slice(0, 3);
+  }, [products]);
+
+  const getFeaturedProducts = useCallback(() => {
+    const active = products.filter((p) => p.isActive !== false && !p.isArchived);
+    const featured = active.filter((p) => p.isFeatured);
+    return featured.length > 0 ? featured : active;
+  }, [products]);
+
+  const getProductBySlug = useCallback((slug: string) => {
+    return products.find((p) => p.slug === slug || p.id === slug);
+  }, [products]);
+
   // Coupons
   const [coupons, setCoupons] = useState<Coupon[]>(() => {
     try {
@@ -148,18 +253,13 @@ export const StoreDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return INITIAL_COUPONS;
   });
 
-  // Reviews
+  // Reviews — Starts completely empty (0 reviews)
   const [reviews, setReviews] = useState<Review[]>(() => {
     try {
       const stored = localStorage.getItem('mithai_pop_reviews');
       if (stored) return JSON.parse(stored);
     } catch {}
-    return INITIAL_REVIEWS.map((r) => ({
-      ...r,
-      date: '28 Aug 2024',
-      status: 'approved' as const,
-      productName: r.favoritePop || 'Gulab Jamun Pop'
-    }));
+    return [];
   });
 
   // Gift Orders
@@ -187,6 +287,15 @@ export const StoreDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       if (stored) return JSON.parse(stored);
     } catch {}
     return INITIAL_ACTIVITY_LOGS;
+  });
+
+  // Support Tickets
+  const [supportTickets, setSupportTickets] = useState<SupportTicket[]>(() => {
+    try {
+      const stored = localStorage.getItem('mithai_pop_support_tickets');
+      if (stored) return JSON.parse(stored);
+    } catch {}
+    return [];
   });
 
   // Settings
@@ -233,6 +342,10 @@ export const StoreDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   useEffect(() => {
     try { localStorage.setItem('mithai_pop_activity', JSON.stringify(activityLogs)); } catch {}
   }, [activityLogs]);
+
+  useEffect(() => {
+    try { localStorage.setItem('mithai_pop_support_tickets', JSON.stringify(supportTickets)); } catch {}
+  }, [supportTickets]);
 
   useEffect(() => {
     try { localStorage.setItem('mithai_pop_settings', JSON.stringify(settings)); } catch {}
@@ -477,48 +590,251 @@ export const StoreDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     logActivity(`Cancelled Pre-Order #${id}`, 'order', id, `Reason: ${reason}`, adminName);
   };
 
-  // Product CRUD
-  const addProduct = (prodData: Omit<Product, 'id'>): Product => {
+  // =========================================================================
+  // PRODUCT MANAGEMENT ACTIONS (DATABASE + REALTIME SYNC)
+  // =========================================================================
+
+  const addProduct = async (prodData: Omit<Product, 'id'>, adminName: string = 'Priya Varma'): Promise<Product> => {
+    const rawId = `pop_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const productSlug = prodData.slug || generateSlug(prodData.name);
+    const sku = prodData.sku || `MP-${prodData.name.substring(0, 2).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`;
+    const mainImg = prodData.thumbnail || prodData.image || (prodData.images && prodData.images[0]) || 'https://images.unsplash.com/photo-1579954115545-a95591f28bfc?w=600';
+
     const newProd: Product = {
       ...prodData,
-      id: `pop_${Date.now()}`,
-      sku: prodData.sku || `MP-${prodData.name.substring(0, 2).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`,
-      createdAt: new Date().toISOString().split('T')[0]
+      id: rawId,
+      slug: productSlug,
+      sku: sku,
+      flavor: prodData.flavor || prodData.flavorCombination || '',
+      flavorCombination: prodData.flavorCombination || prodData.flavor || '',
+      city: prodData.city || prodData.cityInspiration || 'Delhi',
+      cityInspiration: prodData.cityInspiration || prodData.city || 'Delhi',
+      image: mainImg,
+      thumbnail: mainImg,
+      images: prodData.images && prodData.images.length > 0 ? prodData.images : [mainImg],
+      category: prodData.category || 'Classic Fusion',
+      price: Number(prodData.price),
+      originalPrice: prodData.compareAtPrice || prodData.originalPrice || undefined,
+      compareAtPrice: prodData.compareAtPrice || prodData.originalPrice || undefined,
+      inventoryQuantity: prodData.inventoryQuantity ?? prodData.inventoryCount ?? 50,
+      inventoryCount: prodData.inventoryQuantity ?? prodData.inventoryCount ?? 50,
+      lowStockThreshold: prodData.lowStockThreshold || 10,
+      isBestSeller: Boolean(prodData.isBestSeller),
+      isFeatured: Boolean(prodData.isFeatured),
+      isPreorder: Boolean(prodData.isPreorder ?? prodData.isAvailableForPreOrder),
+      isAvailableForPreOrder: Boolean(prodData.isPreorder ?? prodData.isAvailableForPreOrder),
+      isActive: prodData.isActive !== undefined ? Boolean(prodData.isActive) : true,
+      isArchived: false,
+      displayOrder: prodData.displayOrder ?? (products.length + 1),
+      rating: prodData.rating || 4.90,
+      reviewCount: prodData.reviewCount || 0,
+      accentColor: prodData.accentColor || prodData.canisterColor || '#F4BD38',
+      bgColor: '#7A0F29',
+      canisterColor: prodData.canisterColor || prodData.accentColor || '#7A0F29',
+      ingredients: prodData.ingredients && prodData.ingredients.length > 0 ? prodData.ingredients : ['Cardamom', 'Milk Solids', 'Pistachio'],
+      dietary: prodData.dietary && prodData.dietary.length > 0 ? prodData.dietary : ['Vegetarian', 'Gelatin-Free'],
+      tags: prodData.tags || [prodData.category || 'Classic Fusion'],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
+
+    // If Supabase is connected, insert into database
+    if (supabase && isDatabaseConnected) {
+      try {
+        const row = mapProductToDbRow(newProd);
+        const { error } = await supabase.from('products').insert([row]);
+        if (error) {
+          console.warn('Supabase product insert error:', error.message);
+        }
+      } catch (err) {
+        console.warn('Supabase product insert exception:', err);
+      }
+    }
+
     setProducts((prev) => [...prev, newProd]);
-    
-    // Also create inventory record
+
+    // Create corresponding inventory item
     const newInv: InventoryItem = {
       productId: newProd.id,
       productName: newProd.name,
       sku: newProd.sku || 'MP-NEW',
       image: newProd.image,
-      currentStock: prodData.inventoryCount || 50,
+      currentStock: newProd.inventoryQuantity || 50,
       reservedStock: 0,
-      availableStock: prodData.inventoryCount || 50,
-      lowStockThreshold: prodData.lowStockThreshold || 15,
-      status: 'In Stock',
+      availableStock: newProd.inventoryQuantity || 50,
+      lowStockThreshold: newProd.lowStockThreshold || 10,
+      status: (newProd.inventoryQuantity || 50) <= (newProd.lowStockThreshold || 10) ? 'Low Stock' : 'In Stock',
       lastUpdated: new Date().toISOString().replace('T', ' ').substring(0, 16)
     };
     setInventory((prev) => [...prev, newInv]);
+
     sounds.playCelebration();
-    logActivity(`Created Product: ${newProd.name}`, 'product', newProd.id, `Price: ₹${newProd.price}`);
+    logActivity(`Created Product: ${newProd.name}`, 'product', newProd.id, `Price: ₹${newProd.price}, SKU: ${newProd.sku}`, adminName);
     return newProd;
   };
 
-  const updateProduct = (id: string, prodData: Partial<Product>) => {
-    setProducts((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, ...prodData } : p))
+  const updateProduct = async (id: string, prodData: Partial<Product>, adminName: string = 'Priya Varma') => {
+    const existing = products.find((p) => p.id === id);
+    if (!existing) return;
+
+    // Track what changed for rich activity logs
+    const changes: string[] = [];
+    if (prodData.price !== undefined && prodData.price !== existing.price) {
+      changes.push(`Price changed from ₹${existing.price} to ₹${prodData.price}`);
+    }
+    const newStock = prodData.inventoryQuantity ?? prodData.inventoryCount;
+    const oldStock = existing.inventoryQuantity ?? existing.inventoryCount;
+    if (newStock !== undefined && newStock !== oldStock) {
+      changes.push(`Inventory changed from ${oldStock} to ${newStock}`);
+    }
+    if (prodData.isBestSeller !== undefined && prodData.isBestSeller !== existing.isBestSeller) {
+      changes.push(prodData.isBestSeller ? 'Marked as Bestseller' : 'Removed from Bestsellers');
+    }
+    if (prodData.isFeatured !== undefined && prodData.isFeatured !== existing.isFeatured) {
+      changes.push(prodData.isFeatured ? 'Marked as Featured' : 'Removed from Featured');
+    }
+    if (prodData.isActive !== undefined && prodData.isActive !== existing.isActive) {
+      changes.push(prodData.isActive ? 'Activated product' : 'Deactivated product');
+    }
+    if (prodData.isPreorder !== undefined && prodData.isPreorder !== existing.isPreorder) {
+      changes.push(prodData.isPreorder ? 'Enabled Pre-Order' : 'Disabled Pre-Order');
+    }
+
+    const updatedProduct: Product = {
+      ...existing,
+      ...prodData,
+      slug: prodData.name && prodData.name !== existing.name ? generateSlug(prodData.name) : (prodData.slug || existing.slug),
+      flavor: prodData.flavor || prodData.flavorCombination || existing.flavor,
+      flavorCombination: prodData.flavorCombination || prodData.flavor || existing.flavorCombination,
+      city: prodData.city || prodData.cityInspiration || existing.city,
+      cityInspiration: prodData.cityInspiration || prodData.city || existing.cityInspiration,
+      inventoryQuantity: prodData.inventoryQuantity ?? prodData.inventoryCount ?? existing.inventoryQuantity,
+      inventoryCount: prodData.inventoryQuantity ?? prodData.inventoryCount ?? existing.inventoryCount,
+      updatedAt: new Date().toISOString()
+    };
+
+    // If Supabase is connected, update database
+    if (supabase && isDatabaseConnected) {
+      try {
+        const row = mapProductToDbRow(updatedProduct);
+        const { error } = await supabase
+          .from('products')
+          .update(row)
+          .eq('id', id);
+        if (error) {
+          console.warn('Supabase product update error:', error.message);
+        }
+      } catch (err) {
+        console.warn('Supabase product update exception:', err);
+      }
+    }
+
+    setProducts((prev) => prev.map((p) => (p.id === id ? updatedProduct : p)));
+
+    // Update inventory item if name, image, or stock changed
+    setInventory((prev) =>
+      prev.map((inv) => {
+        if (inv.productId === id || inv.sku === existing.sku) {
+          const curStock = updatedProduct.inventoryQuantity ?? inv.currentStock;
+          const avail = Math.max(0, curStock - inv.reservedStock);
+          return {
+            ...inv,
+            productName: updatedProduct.name,
+            sku: updatedProduct.sku || inv.sku,
+            image: updatedProduct.image || inv.image,
+            currentStock: curStock,
+            availableStock: avail,
+            lowStockThreshold: updatedProduct.lowStockThreshold || inv.lowStockThreshold,
+            status: avail === 0 ? 'Out of Stock' : avail <= (updatedProduct.lowStockThreshold || inv.lowStockThreshold) ? 'Low Stock' : 'In Stock',
+            lastUpdated: new Date().toISOString().replace('T', ' ').substring(0, 16)
+          };
+        }
+        return inv;
+      })
     );
+
     sounds.playCanPop();
-    logActivity(`Updated Product #${id}`, 'product', id);
+    const details = changes.length > 0 ? changes.join('; ') : `Updated ${existing.name}`;
+    logActivity(`Updated Product: ${existing.name}`, 'product', id, details, adminName);
   };
 
-  const deleteProduct = (id: string) => {
+  const archiveProduct = async (id: string, adminName: string = 'Priya Varma') => {
+    const existing = products.find((p) => p.id === id);
+    if (!existing) return;
+
+    await updateProduct(id, { isArchived: true, isActive: false }, adminName);
+    logActivity(`Archived Product: ${existing.name}`, 'product', id, 'Moved to Archived status', adminName);
+  };
+
+  const restoreProduct = async (id: string, adminName: string = 'Priya Varma') => {
+    const existing = products.find((p) => p.id === id);
+    if (!existing) return;
+
+    await updateProduct(id, { isArchived: false, isActive: true }, adminName);
+    logActivity(`Restored Product: ${existing.name}`, 'product', id, 'Restored to Active status', adminName);
+  };
+
+  const deleteProduct = (id: string, adminName: string = 'Priya Varma'): { success: boolean; message?: string } => {
+    const existing = products.find((p) => p.id === id);
+    if (!existing) return { success: false, message: 'Product not found' };
+
+    // Check if this product is referenced in any existing orders
+    const hasOrderReferences = orders.some((ord) =>
+      ord.items.some((item) => item.product.id === id || item.product.name === existing.name)
+    );
+
+    if (hasOrderReferences) {
+      // Safe archival instead of breaking order history
+      archiveProduct(id, adminName);
+      return {
+        success: true,
+        message: `Product "${existing.name}" is referenced in existing customer orders. It has been safely archived instead of permanently deleted to protect order history.`
+      };
+    }
+
+    // Permanently remove from database if Supabase is connected
+    if (supabase && isDatabaseConnected) {
+      supabase.from('products').delete().eq('id', id).then();
+    }
+
     setProducts((prev) => prev.filter((p) => p.id !== id));
     setInventory((prev) => prev.filter((i) => i.productId !== id));
     sounds.playClick();
-    logActivity(`Deleted Product #${id}`, 'product', id);
+    logActivity(`Deleted Product: ${existing.name}`, 'product', id, `SKU: ${existing.sku}`, adminName);
+    return { success: true, message: `Product "${existing.name}" was permanently removed.` };
+  };
+
+  const duplicateProduct = async (id: string, adminName: string = 'Priya Varma'): Promise<Product> => {
+    const existing = products.find((p) => p.id === id);
+    if (!existing) throw new Error('Product not found to duplicate');
+
+    const copyData: Omit<Product, 'id'> = {
+      ...existing,
+      name: `${existing.name} (Copy)`,
+      slug: `${existing.slug || generateSlug(existing.name)}-copy-${Math.floor(100 + Math.random() * 900)}`,
+      sku: `MP-${existing.name.substring(0, 2).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`,
+      isBestSeller: false,
+      isFeatured: false,
+      isActive: false, // create as draft
+      isArchived: false,
+      createdAt: new Date().toISOString()
+    };
+
+    const cloned = await addProduct(copyData, adminName);
+    logActivity(`Duplicated Product: ${existing.name} -> ${cloned.name}`, 'product', cloned.id, `New SKU: ${cloned.sku}`, adminName);
+    return cloned;
+  };
+
+  const bulkUpdateProducts = async (ids: string[], updates: Partial<Product>, adminName: string = 'Priya Varma') => {
+    for (const id of ids) {
+      await updateProduct(id, updates, adminName);
+    }
+    sounds.playCelebration();
+    logActivity(`Bulk updated ${ids.length} products`, 'product', undefined, JSON.stringify(updates), adminName);
+  };
+
+  const quickUpdateProduct = async (id: string, updates: Partial<Product>, adminName: string = 'Priya Varma') => {
+    await updateProduct(id, updates, adminName);
   };
 
   // Stock Adjustment
@@ -529,6 +845,24 @@ export const StoreDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           const nextStock = Math.max(0, item.currentStock + delta);
           const nextAvail = Math.max(0, nextStock - item.reservedStock);
           const status = nextAvail === 0 ? 'Out of Stock' : nextAvail <= item.lowStockThreshold ? 'Low Stock' : 'In Stock';
+          
+          // Also sync to products table
+          setProducts((prevProds) =>
+            prevProds.map((prod) => {
+              if (prod.id === item.productId || prod.sku === item.sku) {
+                if (supabase && isDatabaseConnected) {
+                  supabase
+                    .from('products')
+                    .update({ inventory_quantity: nextStock })
+                    .eq('id', prod.id)
+                    .then();
+                }
+                return { ...prod, inventoryQuantity: nextStock, inventoryCount: nextStock };
+              }
+              return prod;
+            })
+          );
+
           return {
             ...item,
             currentStock: nextStock,
@@ -547,6 +881,9 @@ export const StoreDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const updateLowStockThreshold = (productId: string, threshold: number) => {
     setInventory((prev) =>
       prev.map((item) => (item.productId === productId ? { ...item, lowStockThreshold: threshold } : item))
+    );
+    setProducts((prev) =>
+      prev.map((prod) => (prod.id === productId ? { ...prod, lowStockThreshold: threshold } : prod))
     );
     sounds.playClick();
   };
@@ -718,13 +1055,99 @@ export const StoreDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
   };
 
+  // Support Ticket actions
+  const createSupportTicket = (
+    ticket: Partial<SupportTicket>,
+    initialMessage: string
+  ): SupportTicket => {
+    const ticketId = `tkt_${Date.now()}`;
+    const ticketNum = `TKT-${Math.floor(1000 + Math.random() * 9000)}`;
+    const newTicket: SupportTicket = {
+      id: ticketId,
+      ticketNumber: ticketNum,
+      customerName: ticket.customerName || 'Customer',
+      customerEmail: ticket.customerEmail || 'customer@example.com',
+      customerPhone: ticket.customerPhone,
+      subject: ticket.subject || 'General Inquiry',
+      category: ticket.category || 'General',
+      priority: ticket.priority || 'Medium',
+      status: 'Open',
+      createdAt: new Date().toISOString(),
+      messages: [
+        {
+          id: `msg_${Date.now()}`,
+          sender: 'customer',
+          senderName: ticket.customerName || 'Customer',
+          message: initialMessage,
+          timestamp: new Date().toISOString()
+        }
+      ],
+      assignedTo: 'Support Desk',
+      internalNotes: []
+    };
+
+    setSupportTickets((prev) => [newTicket, ...prev]);
+    logActivity(`Created Support Ticket #${ticketNum}`, 'support', ticketId, `Category: ${newTicket.category}`);
+    sounds.playCanPop();
+    return newTicket;
+  };
+
+  const updateTicketStatus = (id: string, status: SupportTicket['status'], adminName: string = 'Admin Staff') => {
+    setSupportTickets((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, status } : t))
+    );
+    logActivity(`Updated Support Ticket status to ${status}`, 'support', id, `Status: ${status}`, adminName);
+  };
+
+  const addTicketReply = (id: string, message: string, sender: 'admin' | 'customer', senderName: string) => {
+    setSupportTickets((prev) =>
+      prev.map((t) => {
+        if (t.id !== id) return t;
+        const newMsg = {
+          id: `msg_${Date.now()}`,
+          sender,
+          senderName,
+          message,
+          timestamp: new Date().toISOString()
+        };
+        const newStatus = sender === 'admin' ? ('Waiting for Customer' as const) : ('In Progress' as const);
+        return {
+          ...t,
+          status: t.status === 'Closed' ? 'Closed' : newStatus,
+          messages: [...t.messages, newMsg]
+        };
+      })
+    );
+    sounds.playCanPop();
+    logActivity(`Replied to Support Ticket`, 'support', id, `Sender: ${senderName}`);
+  };
+
+  const addTicketInternalNote = (id: string, note: string, adminName: string = 'Admin Staff') => {
+    setSupportTickets((prev) =>
+      prev.map((t) => {
+        if (t.id !== id) return t;
+        return {
+          ...t,
+          internalNotes: [...(t.internalNotes || []), `${adminName} (${new Date().toLocaleTimeString()}): ${note}`]
+        };
+      })
+    );
+  };
+
+  const assignTicket = (id: string, assignedTo: string, adminName: string = 'Admin Staff') => {
+    setSupportTickets((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, assignedTo } : t))
+    );
+    logActivity(`Assigned Ticket to ${assignedTo}`, 'support', id, `Assignee: ${assignedTo}`, adminName);
+  };
+
   // Export CSV
-  const exportDataToCSV = (type: 'orders' | 'preorders' | 'inventory' | 'customers' | 'coupons') => {
+  const exportDataToCSV = (type: 'orders' | 'preorders' | 'inventory' | 'customers' | 'coupons' | 'payments' | 'products') => {
     let headers: string[] = [];
     let rows: string[][] = [];
 
     if (type === 'orders') {
-      headers = ['Order ID', 'Customer', 'Email', 'Phone', 'Date', 'Total', 'Payment', 'Status', 'Items'];
+      headers = ['Order ID', 'Customer', 'Email', 'Phone', 'Date', 'Total', 'Payment Method', 'Payment Status', 'Order Status', 'Delivery Method', 'Address', 'Items'];
       rows = orders.map((o) => [
         o.orderId,
         o.customerName || 'N/A',
@@ -733,14 +1156,19 @@ export const StoreDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         o.placedAt,
         `Rs. ${o.total}`,
         o.paymentMethod,
+        o.status === 'Cancelled' ? 'Cancelled' : o.status === 'Refunded' ? 'Refunded' : 'Paid',
         o.status,
+        o.deliveryMethod || 'Standard Cryo-Pack',
+        o.shippingAddress ? `${o.shippingAddress.addressLine}, ${o.shippingAddress.city}, ${o.shippingAddress.pincode}` : 'N/A',
         o.items.map((i) => `${i.product.name} (x${i.quantity})`).join('; ')
       ]);
     } else if (type === 'preorders') {
-      headers = ['Pre-Order ID', 'Customer', 'Product', 'Qty', 'Total', 'Launch Date', 'Dispatch Date', 'Status'];
+      headers = ['Pre-Order ID', 'Customer', 'Email', 'Phone', 'Product', 'Qty', 'Total', 'Launch Date', 'Dispatch Date', 'Status'];
       rows = preOrders.map((p) => [
         p.orderNumber,
         p.customerName,
+        p.customerEmail,
+        p.customerPhone,
         p.product.name,
         p.quantity.toString(),
         `Rs. ${p.totalPrice}`,
@@ -770,9 +1198,62 @@ export const StoreDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         `${c.usageCount}/${c.usageLimit}`,
         c.isActive ? 'Yes' : 'No'
       ]);
+    } else if (type === 'payments') {
+      headers = ['Transaction ID', 'Order ID', 'Customer', 'Amount', 'Payment Method', 'Payment Status', 'Date'];
+      rows = orders.map((o) => [
+        `TXN-${o.orderId}-MP`,
+        o.orderId,
+        o.customerName || 'N/A',
+        `Rs. ${o.total}`,
+        o.paymentMethod,
+        o.status === 'Cancelled' ? 'Cancelled' : o.status === 'Refunded' ? 'Refunded' : 'Paid',
+        o.placedAt
+      ]);
+    } else if (type === 'customers') {
+      headers = ['Customer Name', 'Email', 'Phone', 'Orders Count', 'Total Spent', 'Last Order Date'];
+      const customerMap: Record<string, { name: string; email: string; phone: string; orders: number; totalSpent: number; lastOrder: string }> = {};
+      orders.forEach((o) => {
+        const email = o.customerEmail || 'guest@mithaipop.com';
+        if (!customerMap[email]) {
+          customerMap[email] = {
+            name: o.customerName || 'Guest Customer',
+            email,
+            phone: o.customerPhone || 'N/A',
+            orders: 0,
+            totalSpent: 0,
+            lastOrder: o.placedAt
+          };
+        }
+        customerMap[email].orders += 1;
+        customerMap[email].totalSpent += o.total;
+        if (new Date(o.placedAt) > new Date(customerMap[email].lastOrder)) {
+          customerMap[email].lastOrder = o.placedAt;
+        }
+      });
+      rows = Object.values(customerMap).map((c) => [
+        c.name,
+        c.email,
+        c.phone,
+        c.orders.toString(),
+        `Rs. ${c.totalSpent}`,
+        c.lastOrder
+      ]);
+    } else if (type === 'products') {
+      headers = ['Product Name', 'SKU', 'Category', 'Flavor', 'City', 'Price', 'Original Price', 'Stock', 'Status'];
+      rows = products.map((p) => [
+        p.name,
+        p.sku || `MP-${p.name.substring(0, 2).toUpperCase()}-001`,
+        p.category || 'Classic Fusion',
+        p.flavorCombination || 'N/A',
+        p.cityInspiration || 'Delhi',
+        `Rs. ${p.price}`,
+        `Rs. ${p.originalPrice || p.price}`,
+        (p.inventoryCount ?? 50).toString(),
+        (p.inventoryCount ?? 50) > 0 ? 'In Stock' : 'Out of Stock'
+      ]);
     }
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.map((val) => `"${val.replace(/"/g, '""')}"`).join(','))].join('\n');
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.map((val) => `"${(val || '').replace(/"/g, '""')}"`).join(','))].join('\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
@@ -795,10 +1276,18 @@ export const StoreDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         giftOrders,
         notifications,
         activityLogs,
+        supportTickets,
         settings,
         analyticsTimeframe,
         setAnalyticsTimeframe,
         getAnalytics,
+        isDatabaseConnected,
+        isLoadingProducts,
+        reloadProductsFromDatabase,
+        getPublicProducts,
+        getBestSellerProducts,
+        getFeaturedProducts,
+        getProductBySlug,
         createOrder: addOrder,
         addOrder,
         updateOrderStatus,
@@ -813,6 +1302,11 @@ export const StoreDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         addProduct,
         updateProduct,
         deleteProduct,
+        archiveProduct,
+        restoreProduct,
+        duplicateProduct,
+        bulkUpdateProducts,
+        quickUpdateProduct,
         adjustStock,
         updateLowStockThreshold,
         addCoupon,
@@ -822,6 +1316,11 @@ export const StoreDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         updateReviewStatus,
         deleteReview,
         updateGiftOrderStatus,
+        createSupportTicket,
+        updateTicketStatus,
+        addTicketReply,
+        addTicketInternalNote,
+        assignTicket,
         markNotificationRead,
         markAllNotificationsRead,
         clearNotification,

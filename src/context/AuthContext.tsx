@@ -100,34 +100,61 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [currentUser]);
 
-  // Sync hash routing with views
+  // Sync hash and pathname routing with views
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.toLowerCase();
-      if (hash.startsWith('#admin/login')) {
-        setCurrentViewInternal('login');
-      } else if (hash.startsWith('#admin')) {
-        if (!currentUser) {
+      const path = window.location.pathname.toLowerCase();
+
+      if (path === '/admin/login' || path.startsWith('/admin/login') || hash.startsWith('#admin/login')) {
+        if (currentUser && currentUser.role !== 'CUSTOMER') {
+          setCurrentViewInternal('admin');
+          window.location.hash = '#admin';
+        } else {
           setCurrentViewInternal('login');
-          window.location.hash = '#admin/login';
-        } else if (currentUser.role === 'CUSTOMER') {
-          // Deny customer access to admin
+        }
+      } else if (path === '/admin' || path.startsWith('/admin') || hash.startsWith('#admin')) {
+        if (!currentUser || currentUser.role === 'CUSTOMER') {
           sounds.playError();
           setCurrentViewInternal('login');
           window.location.hash = '#admin/login';
         } else {
           setCurrentViewInternal('admin');
-          const sub = hash.replace('#admin-', '').replace('#admin', '');
-          if (sub && sub !== '' && sub !== '/login') {
+          // Support /admin/orders or #admin-orders or #admin/orders
+          let sub = '';
+          if (hash.startsWith('#admin-')) sub = hash.replace('#admin-', '');
+          else if (hash.startsWith('#admin/')) sub = hash.replace('#admin/', '');
+          else if (path.startsWith('/admin/')) sub = path.replace('/admin/', '');
+
+          if (sub && sub !== 'login') {
             setActiveAdminTab(sub);
           }
         }
-      } else if (hash.startsWith('#account') || hash.startsWith('#orders') || hash.startsWith('#preorders')) {
+      } else if (path === '/login' || path.startsWith('/login') || path === '/signup' || hash.startsWith('#login') || hash.startsWith('#signup') || hash.startsWith('#auth')) {
+        if (currentUser) {
+          if (currentUser.role === 'CUSTOMER') {
+            setCurrentViewInternal('account');
+            window.location.hash = '#account';
+          } else {
+            setCurrentViewInternal('admin');
+            window.location.hash = '#admin';
+          }
+        } else {
+          setCurrentViewInternal('login');
+          if (hash.startsWith('#signup') || path === '/signup') {
+            setAuthViewMode('register');
+          } else {
+            setAuthViewMode('login');
+          }
+        }
+      } else if (path === '/account' || hash.startsWith('#account') || hash.startsWith('#orders') || hash.startsWith('#preorders')) {
         if (!currentUser) {
-          setCurrentViewInternal('shop');
+          setCurrentViewInternal('login');
+          window.location.hash = '#login';
         } else if (currentUser.role !== 'CUSTOMER') {
           // Admin redirected to admin
           setCurrentViewInternal('admin');
+          window.location.hash = '#admin';
         } else {
           setCurrentViewInternal('account');
           if (hash.startsWith('#orders/')) {
@@ -138,16 +165,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setActiveAccountTab(hash.replace('#account-', ''));
           }
         }
-      } else if (hash === '#login') {
-        setCurrentViewInternal('login');
-      } else if (hash === '#shop' || hash === '#menu' || hash === '#hero' || hash === '') {
+      } else if (hash === '#shop' || hash === '#menu' || hash === '#hero' || hash === '' || hash.startsWith('#build-your-pop') || hash.startsWith('#reviews') || hash.startsWith('#story') || hash.startsWith('#cities')) {
         setCurrentViewInternal('shop');
       }
     };
 
     window.addEventListener('hashchange', handleHashChange);
+    window.addEventListener('popstate', handleHashChange);
     handleHashChange(); // Run on mount
-    return () => window.removeEventListener('hashchange', handleHashChange);
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+      window.removeEventListener('popstate', handleHashChange);
+    };
   }, [currentUser]);
 
   // Setter with hash synchronization
@@ -163,8 +192,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       window.location.hash = '#admin';
     } else if (view === 'account') {
       if (!currentUser) {
-        setCurrentViewInternal('shop');
-        window.location.hash = '#';
+        setCurrentViewInternal('login');
+        window.location.hash = '#login';
         return;
       }
       if (currentUser.role !== 'CUSTOMER') {
@@ -176,7 +205,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       window.location.hash = '#account';
     } else if (view === 'login') {
       setCurrentViewInternal('login');
-      window.location.hash = '#admin/login';
+      // If previous hash was admin/login keep it, else default to customer #login
+      if (window.location.hash.toLowerCase().startsWith('#admin/login')) {
+        window.location.hash = '#admin/login';
+      } else {
+        window.location.hash = '#login';
+      }
     } else {
       setCurrentViewInternal('shop');
       window.location.hash = '#';
@@ -186,57 +220,64 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Dedicated Admin Login handler
   const loginAdmin = async (email: string, password: string, rememberMe: boolean = true): Promise<{ success: boolean; user?: User; error?: string }> => {
     // Artificial realistic security delay
-    await new Promise((res) => setTimeout(res, 500));
+    await new Promise((res) => setTimeout(res, 250));
 
-    const cleanEmail = email.trim().toLowerCase();
-    const cleanPass = password.trim();
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanPass = (password || '').trim();
 
-    // Check in users list for admin users
-    const matched = users.find((u) => u.email.toLowerCase() === cleanEmail);
+    // Check credentials against exact prototype admin credentials
+    if (cleanEmail === 'admin123@mail.com' && cleanPass === 'admin123@mail.com') {
+      const adminUser: User = {
+        id: 'user_admin_01',
+        fullName: 'Admin Staff',
+        email: 'admin123@mail.com',
+        phone: '+91 98100 99881',
+        role: 'ADMIN',
+        avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80',
+        status: 'active',
+        createdAt: '2024-01-01',
+        notes: ['Head of Operations & Brand Commerce', 'Store Administrator']
+      };
 
-    if (!matched) {
-      sounds.playError();
-      return { success: false, error: 'Incorrect email or password.' };
-    }
+      setUsers((prev) => [adminUser, ...prev.filter((u) => u.email.toLowerCase() !== 'admin123@mail.com')]);
+      setCurrentUser(adminUser);
 
-    // Role check: Only administrative roles are allowed access
-    const adminRoles: UserRole[] = ['ADMIN', 'SUPER_ADMIN', 'OPERATIONS', 'INVENTORY_MANAGER', 'SUPPORT_ADMIN'];
-    if (!adminRoles.includes(matched.role)) {
-      sounds.playError();
-      return { success: false, error: 'Incorrect email or password.' };
-    }
-
-    // Check admin credentials (Prototype password is 123@abc)
-    if (cleanPass !== '123@abc' && cleanPass !== 'admin123' && cleanPass !== 'admin' && cleanPass !== 'password123') {
-      sounds.playError();
-      return { success: false, error: 'Incorrect email or password.' };
-    }
-
-    // Success
-    sounds.playCelebration();
-    setCurrentUser(matched);
-
-    if (rememberMe) {
-      try {
-        localStorage.setItem('mithai_pop_current_user', JSON.stringify(matched));
-      } catch {
-        // ignore
+      if (rememberMe) {
+        try {
+          localStorage.setItem('mithai_pop_current_user', JSON.stringify(adminUser));
+        } catch {
+          // ignore
+        }
       }
+
+      sounds.playCelebration();
+      setCurrentViewInternal('admin');
+      window.location.hash = '#admin';
+
+      return { success: true, user: adminUser };
     }
 
-    setCurrentViewInternal('admin');
-    window.location.hash = '#admin';
-
-    return { success: true, user: matched };
+    sounds.playError();
+    return { success: false, error: 'Email or password is incorrect.' };
   };
 
   // Customer Login handler
   const login = async (emailOrPhone: string, password: string): Promise<{ success: boolean; user?: User; error?: string }> => {
     // Artificial slight realistic delay
-    await new Promise((res) => setTimeout(res, 600));
+    await new Promise((res) => setTimeout(res, 350));
 
-    const cleanInput = emailOrPhone.trim().toLowerCase();
-    const cleanPass = password.trim();
+    const cleanInput = (emailOrPhone || '').trim().toLowerCase();
+    const cleanPass = (password || '').trim();
+
+    // If prototype admin credentials entered on customer form, authenticate admin
+    if (cleanInput === 'admin123@mail.com') {
+      if (cleanPass === 'admin123@mail.com') {
+        return loginAdmin('admin123@mail.com', 'admin123@mail.com', true);
+      } else {
+        sounds.playError();
+        return { success: false, error: 'Email or password is incorrect.' };
+      }
+    }
 
     // Check in users list or initial demo users
     const matched = users.find((u) => {
@@ -250,17 +291,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: false, error: 'Email or password is incorrect.' };
     }
 
-    // Check password
-    if (matched.role === 'ADMIN' || matched.role === 'SUPER_ADMIN') {
-      if (cleanPass !== 'admin123' && cleanPass !== 'admin' && cleanPass !== 'password123') {
-        sounds.playError();
-        return { success: false, error: 'Email or password is incorrect.' };
-      }
-    } else {
-      if (cleanPass.length < 4) {
-        sounds.playError();
-        return { success: false, error: 'Email or password is incorrect.' };
-      }
+    // Check customer password
+    if (cleanPass.length < 4) {
+      sounds.playError();
+      return { success: false, error: 'Email or password is incorrect.' };
     }
 
     // Success
@@ -405,9 +439,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Logout
   const logout = () => {
     sounds.playClick();
+    const wasAdmin = isAdmin || currentView === 'admin' || (currentUser && currentUser.role !== 'CUSTOMER');
     setCurrentUser(null);
-    setCurrentViewInternal('shop');
-    window.location.hash = '#';
+    try {
+      localStorage.removeItem('mithai_pop_current_user');
+    } catch {}
+
+    if (wasAdmin) {
+      setCurrentViewInternal('login');
+      window.location.hash = '#admin/login';
+    } else {
+      setCurrentViewInternal('shop');
+      window.location.hash = '#';
+    }
   };
 
   // Quick switch for convenient testing

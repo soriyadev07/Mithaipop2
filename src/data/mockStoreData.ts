@@ -15,14 +15,14 @@ import { PRODUCTS } from './products';
 export const INITIAL_USERS: (User & { passwordHash: string })[] = [
   {
     id: 'user_admin_01',
-    fullName: 'Priya Varma',
-    email: 'admin@mithaipop.com',
+    fullName: 'Admin Staff',
+    email: 'admin123@mail.com',
     phone: '+91 98100 99881',
     role: 'ADMIN',
     avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80',
     status: 'active',
     createdAt: '2024-01-01',
-    passwordHash: '123@abc',
+    passwordHash: 'admin123@mail.com',
     notes: ['Head of Operations & Brand Commerce', 'Store Administrator']
   }
 ];
@@ -111,6 +111,9 @@ export const INITIAL_NOTIFICATIONS: AppNotification[] = [];
 // INITIAL ACTIVITY LOGS — Starts completely empty (0 activity logs)
 export const INITIAL_ACTIVITY_LOGS: ActivityLog[] = [];
 
+// INITIAL SUPPORT TICKETS — Starts completely empty (0 support tickets)
+export const INITIAL_SUPPORT_TICKETS: any[] = [];
+
 // INITIAL STORE SETTINGS
 export const INITIAL_SETTINGS: StoreSettings = {
   storeName: 'Mithai Pop Foods Pvt. Ltd.',
@@ -121,6 +124,9 @@ export const INITIAL_SETTINGS: StoreSettings = {
   standardDeliveryFee: 49,
   expressDeliveryFee: 99,
   freeDeliveryThreshold: 499,
+  standardDeliveryTime: '30-45 mins (Cryo-Pack)',
+  expressDeliveryTime: '15-25 mins (Super-Chill Priority)',
+  serviceableAreas: 'Delhi NCR, Mumbai, Bengaluru, Hyderabad, Chennai, Pune, Kolkata, Jaipur, Ahmedabad',
   taxRatePercent: 5,
   enableCod: true,
   enableUPI: true,

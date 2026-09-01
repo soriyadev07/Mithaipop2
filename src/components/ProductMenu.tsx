@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
-import { PRODUCTS, BUNDLE_PACKS, tapestryGoldBg } from '../data/products';
+import { BUNDLE_PACKS, tapestryGoldBg } from '../data/products';
 import { ProductCard } from './ProductCard';
 import { Sparkles } from 'lucide-react';
 import { sounds } from '../utils/audio';
 import { useCart } from '../context/CartContext';
+import { useStoreData } from '../context/StoreDataContext';
 import { ScrollReveal } from './ScrollReveal';
 
 export const ProductMenu: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const { addToCart } = useCart();
+  const { products, getPublicProducts } = useStoreData();
+
+  const activePops = getPublicProducts ? getPublicProducts() : products.filter(p => p.isActive !== false && !p.isArchived);
 
   const categories = [
     { id: 'all', name: 'All Pops' },
@@ -23,10 +27,10 @@ export const ProductMenu: React.FC = () => {
     setActiveCategory(id);
   };
 
-  const filteredProducts = PRODUCTS.filter((p) => {
+  const filteredProducts = activePops.filter((p) => {
     if (activeCategory === 'all') return true;
     if (activeCategory === 'bundles') return false;
-    return p.tags.includes(activeCategory);
+    return (p.tags && p.tags.includes(activeCategory)) || p.category === activeCategory;
   });
 
   return (

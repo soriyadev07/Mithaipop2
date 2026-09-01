@@ -1,41 +1,73 @@
 export interface Product {
   id: string;
   name: string;
+  slug?: string;
   hindiName?: string;
-  flavorCombination: string;
-  tagline: string;
+  flavorCombination?: string;
+  flavor?: string;
+  tagline?: string;
+  shortDescription?: string;
+  short_description?: string;
   description: string;
-  cityInspiration: string;
+  cityInspiration?: string;
+  city?: string;
   price: number;
   originalPrice?: number;
+  compareAtPrice?: number;
+  compare_at_price?: number;
   rating: number;
   reviewCount: number;
   image: string;
-  accentColor: string;
-  bgColor: string;
+  thumbnail?: string;
+  images?: string[];
+  accentColor?: string;
+  bgColor?: string;
+  canisterColor?: string;
+  canister_color?: string;
   badge?: string;
   ingredients: string[];
-  pairingNotes: string;
-  temperature: string;
-  shelfLife: string;
-  canArtworkDescription: string;
-  nutrition: {
+  pairingNotes?: string;
+  temperature?: string;
+  shelfLife?: string;
+  canArtworkDescription?: string;
+  nutrition?: {
     calories: number;
     protein: string;
     carbs: string;
     fat: string;
   };
   tags: string[];
-  // Extended product management fields
+  
+  // Database & Product Management fields
   sku?: string;
-  category?: 'Classic Fusion' | 'City Edition' | 'Limited Reserve' | 'Custom Creation';
+  category?: string;
   inventoryCount?: number;
+  inventoryQuantity?: number;
+  inventory_quantity?: number;
   lowStockThreshold?: number;
+  low_stock_threshold?: number;
   isFeatured?: boolean;
+  is_featured?: boolean;
   isBestSeller?: boolean;
+  is_best_seller?: boolean;
   isAvailableForPreOrder?: boolean;
+  isPreorder?: boolean;
+  is_preorder?: boolean;
+  isActive?: boolean;
+  is_active?: boolean;
   isArchived?: boolean;
+  is_archived?: boolean;
+  displayOrder?: number;
+  display_order?: number;
+  texture?: string;
+  sweetnessLevel?: number;
+  traditionalRoot?: string;
+  modernTwist?: string;
+  dietary?: string[];
   createdAt?: string;
+  created_at?: string;
+  updatedAt?: string;
+  updated_at?: string;
 }
 
 export interface CartItem {
@@ -217,27 +249,61 @@ export interface GiftOrderRecord {
   orderDate: string;
 }
 
+export type GiftOrder = GiftOrderRecord;
+
 export interface AppNotification {
   id: string;
   target: 'customer' | 'admin' | 'all';
   userId?: string;
   title: string;
   message: string;
-  type: 'order' | 'preorder' | 'stock' | 'customer' | 'review' | 'refund' | 'general';
+  type: 'order' | 'preorder' | 'stock' | 'customer' | 'review' | 'refund' | 'general' | 'system';
   read: boolean;
-  createdAt: string;
+  timestamp?: string;
+  createdAt?: string;
   link?: string;
 }
 
 export interface ActivityLog {
   id: string;
   timestamp: string;
-  adminName: string;
-  adminEmail: string;
+  actor?: string;
   action: string;
-  targetType: 'order' | 'product' | 'inventory' | 'customer' | 'coupon' | 'review' | 'settings';
+  target?: string;
+  adminName?: string;
+  adminEmail?: string;
+  targetType?: 'order' | 'product' | 'inventory' | 'customer' | 'coupon' | 'review' | 'settings' | 'support';
   targetId?: string;
-  details: string;
+  details?: string;
+}
+
+export type TicketStatus = 'Open' | 'In Progress' | 'Waiting for Customer' | 'Resolved' | 'Closed';
+export type TicketPriority = 'Low' | 'Medium' | 'High' | 'Urgent';
+
+export interface TicketMessage {
+  id: string;
+  sender: 'customer' | 'staff' | 'admin';
+  senderName: string;
+  message: string;
+  timestamp: string;
+  isInternalNote?: boolean;
+}
+
+export interface SupportTicket {
+  id: string;
+  ticketNumber: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone?: string;
+  subject: string;
+  orderId?: string;
+  category: 'Order Issue' | 'Payment' | 'Delivery' | 'Product' | 'Refund' | 'General';
+  priority: TicketPriority;
+  status: TicketStatus;
+  createdAt: string;
+  messages: TicketMessage[];
+  assignedTo?: string;
+  internalNotes?: string[];
 }
 
 export interface StoreSettings {
@@ -249,6 +315,9 @@ export interface StoreSettings {
   standardDeliveryFee: number;
   expressDeliveryFee: number;
   freeDeliveryThreshold: number;
+  standardDeliveryTime: string;
+  expressDeliveryTime: string;
+  serviceableAreas: string;
   taxRatePercent: number;
   enableCod: boolean;
   enableUPI: boolean;

@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { useCart } from '../context/CartContext';
-import { PRODUCTS, tapestryGoldBg } from '../data/products';
+import { useStoreData } from '../context/StoreDataContext';
+import { tapestryGoldBg } from '../data/products';
 import { Search, X, Star } from 'lucide-react';
 import { sounds } from '../utils/audio';
 
 export const SearchModal: React.FC = () => {
   const { isSearchOpen, setSearchOpen, setSelectedProductModal, addToCart } = useCart();
+  const { products, getPublicProducts } = useStoreData();
   const [query, setQuery] = useState('');
 
   if (!isSearchOpen) return null;
@@ -16,14 +18,16 @@ export const SearchModal: React.FC = () => {
     setQuery('');
   };
 
-  const filtered = PRODUCTS.filter((p) => {
+  const activePops = getPublicProducts ? getPublicProducts() : products.filter(p => p.isActive !== false && !p.isArchived);
+
+  const filtered = activePops.filter((p) => {
     const q = query.toLowerCase();
     return (
       p.name.toLowerCase().includes(q) ||
-      p.flavorCombination.toLowerCase().includes(q) ||
-      p.cityInspiration.toLowerCase().includes(q) ||
-      p.description.toLowerCase().includes(q) ||
-      p.ingredients.some((ing) => ing.toLowerCase().includes(q))
+      (p.flavorCombination && p.flavorCombination.toLowerCase().includes(q)) ||
+      (p.cityInspiration && p.cityInspiration.toLowerCase().includes(q)) ||
+      (p.description && p.description.toLowerCase().includes(q)) ||
+      (p.ingredients && p.ingredients.some((ing) => ing.toLowerCase().includes(q)))
     );
   });
 
