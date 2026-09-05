@@ -3,11 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { CartProvider } from './context/CartContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { StoreDataProvider } from './context/StoreDataContext';
 import { Navbar } from './components/Navbar';
+import { PreLaunchBanner } from './components/PreLaunchBanner';
 import { Hero } from './components/Hero';
 import { ProblemSection } from './components/ProblemSection';
 import { BigIdeaSection } from './components/BigIdeaSection';
@@ -25,6 +26,7 @@ import { ProductDetailModal } from './components/ProductDetailModal';
 import { CartDrawer } from './components/CartDrawer';
 import { SearchModal } from './components/SearchModal';
 import { AddToCartNotification } from './components/AddToCartNotification';
+import { WaitlistModal } from './components/WaitlistModal';
 import { SparkleCursor } from './components/SparkleCursor';
 import { ClickPopEffect } from './components/ClickPopEffect';
 import { ScrollProgress } from './components/ScrollProgress';
@@ -32,9 +34,15 @@ import { LoginPage } from './components/auth/LoginPage';
 import { CustomerAccount } from './components/account/CustomerAccount';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { tapestryRedBg } from './data/products';
+import { captureUrlAttribution } from './utils/attribution';
 
 const AppContent: React.FC = () => {
   const { currentView } = useAuth();
+
+  // Capture ad attribution parameters on mount (Meta Ads fbclid, UTMs)
+  useEffect(() => {
+    captureUrlAttribution();
+  }, []);
 
   // If user is navigating to Login view
   if (currentView === 'login') {
@@ -78,6 +86,9 @@ const AppContent: React.FC = () => {
 
       {/* Content Container (Sharp, high-contrast, luminous foreground) */}
       <div className="relative z-10 flex flex-col min-h-screen">
+        {/* Pre-launch Announcement Banner */}
+        <PreLaunchBanner />
+
         {/* Sticky Header Navigation with Auth link */}
         <Navbar />
 
@@ -125,6 +136,7 @@ const AppContent: React.FC = () => {
       <CartDrawer />
       <SearchModal />
       <AddToCartNotification />
+      <WaitlistModal />
     </div>
   );
 };

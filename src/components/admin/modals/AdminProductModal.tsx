@@ -257,31 +257,33 @@ export const AdminProductModal: React.FC<AdminProductModalProps> = ({
       .map(s => s.trim())
       .filter(Boolean);
 
-    const mainImage = formData.image || (formData.images && formData.images[0]) || delhiPopImg;
+    const mainImage = formData.image || (product && product.image) || (formData.images && formData.images[0]) || lucknowPopImg;
 
     const preparedProduct = {
       ...formData,
-      slug: formData.slug || generateSlug(formData.name || 'new-pop'),
+      name: formData.name?.trim() || product?.name || 'Artisanal Mithai Pop',
+      sku: formData.sku?.trim() || product?.sku || `MP-POP-${Math.floor(100 + Math.random() * 900)}`,
+      slug: formData.slug || generateSlug(formData.name || product?.name || 'new-pop'),
       image: mainImage,
       thumbnail: mainImage,
       images: formData.images && formData.images.length > 0 ? formData.images : [mainImage],
-      flavor: formData.flavorCombination || formData.flavor || '',
-      flavorCombination: formData.flavorCombination || formData.flavor || '',
-      city: formData.cityInspiration || formData.city || 'Delhi',
-      cityInspiration: formData.cityInspiration || formData.city || 'Delhi',
-      ingredients: ingList.length > 0 ? ingList : ['Milk Solids', 'Cardamom'],
-      dietary: selectedDietary.length > 0 ? selectedDietary : ['Vegetarian'],
-      price: Number(formData.price),
-      originalPrice: Number(formData.compareAtPrice || formData.originalPrice || formData.price),
-      compareAtPrice: Number(formData.compareAtPrice || formData.originalPrice || formData.price),
-      inventoryQuantity: Number(formData.inventoryQuantity || formData.inventoryCount || 50),
-      inventoryCount: Number(formData.inventoryQuantity || formData.inventoryCount || 50),
-      lowStockThreshold: Number(formData.lowStockThreshold || 10),
-      isBestSeller: Boolean(formData.isBestSeller),
-      isFeatured: Boolean(formData.isFeatured),
-      isPreorder: Boolean(formData.isPreorder ?? formData.isAvailableForPreOrder),
-      isAvailableForPreOrder: Boolean(formData.isPreorder ?? formData.isAvailableForPreOrder),
-      isActive: formData.isActive !== undefined ? Boolean(formData.isActive) : true,
+      flavor: formData.flavorCombination || formData.flavor || product?.flavorCombination || 'Artisanal Blend',
+      flavorCombination: formData.flavorCombination || formData.flavor || product?.flavorCombination || 'Artisanal Blend',
+      city: formData.cityInspiration || formData.city || product?.city || 'Delhi',
+      cityInspiration: formData.cityInspiration || formData.city || product?.cityInspiration || 'Delhi',
+      ingredients: ingList.length > 0 ? ingList : (product?.ingredients && product.ingredients.length > 0 ? product.ingredients : ['Milk Solids', 'Cardamom']),
+      dietary: selectedDietary.length > 0 ? selectedDietary : (product?.dietary || ['Vegetarian']),
+      price: Number(formData.price !== undefined && formData.price !== null && formData.price !== 0 ? formData.price : (product?.price || 249)),
+      originalPrice: Number(formData.compareAtPrice || formData.originalPrice || product?.originalPrice || product?.price || 299),
+      compareAtPrice: Number(formData.compareAtPrice || formData.originalPrice || product?.compareAtPrice || 299),
+      inventoryQuantity: Number(formData.inventoryQuantity ?? formData.inventoryCount ?? product?.inventoryQuantity ?? 50),
+      inventoryCount: Number(formData.inventoryQuantity ?? formData.inventoryCount ?? product?.inventoryCount ?? 50),
+      lowStockThreshold: Number(formData.lowStockThreshold || product?.lowStockThreshold || 10),
+      isBestSeller: Boolean(formData.isBestSeller ?? product?.isBestSeller),
+      isFeatured: Boolean(formData.isFeatured ?? product?.isFeatured),
+      isPreorder: Boolean(formData.isPreorder ?? formData.isAvailableForPreOrder ?? product?.isPreorder),
+      isAvailableForPreOrder: Boolean(formData.isPreorder ?? formData.isAvailableForPreOrder ?? product?.isAvailableForPreOrder),
+      isActive: formData.isActive !== undefined ? Boolean(formData.isActive) : (product?.isActive !== undefined ? product.isActive : true),
     } as Product;
 
     if (product) {
@@ -332,10 +334,9 @@ export const AdminProductModal: React.FC<AdminProductModalProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="sm:col-span-2">
-                <label className="block font-bold text-stone-700 mb-1">Pop Name *</label>
+                <label className="block font-bold text-stone-700 mb-1">Pop Name</label>
                 <input
                   type="text"
-                  required
                   value={formData.name || ''}
                   onChange={(e) => handleNameChange(e.target.value)}
                   placeholder="e.g. Kashmiri Saffron Rabdi Pop"
@@ -344,10 +345,9 @@ export const AdminProductModal: React.FC<AdminProductModalProps> = ({
               </div>
 
               <div>
-                <label className="block font-bold text-stone-700 mb-1">SKU Code *</label>
+                <label className="block font-bold text-stone-700 mb-1">SKU Code</label>
                 <input
                   type="text"
-                  required
                   value={formData.sku || ''}
                   onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
                   placeholder="e.g. MP-SAF-001"
@@ -414,10 +414,9 @@ export const AdminProductModal: React.FC<AdminProductModalProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="sm:col-span-3">
-                <label className="block font-bold text-stone-700 mb-1">Flavor Remix Combination *</label>
+                <label className="block font-bold text-stone-700 mb-1">Flavor Remix Combination</label>
                 <input
                   type="text"
-                  required
                   value={formData.flavorCombination || formData.flavor || ''}
                   onChange={(e) => setFormData({ ...formData, flavorCombination: e.target.value, flavor: e.target.value })}
                   placeholder="e.g. Crispy Jalebi × Silky Saffron Rabri"
@@ -482,12 +481,11 @@ export const AdminProductModal: React.FC<AdminProductModalProps> = ({
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div>
-                <label className="block font-bold text-stone-700 mb-1">Selling Price (₹) *</label>
+                <label className="block font-bold text-stone-700 mb-1">Selling Price (₹)</label>
                 <input
                   type="number"
-                  required
-                  min={1}
-                  value={formData.price || 0}
+                  min={0}
+                  value={formData.price ?? 249}
                   onChange={(e) => setFormData({ ...formData, price: Number(e.target.value) })}
                   className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl font-bold text-sm text-[#171316] focus:outline-none focus:border-[#7A0F29]"
                 />
@@ -573,15 +571,26 @@ export const AdminProductModal: React.FC<AdminProductModalProps> = ({
                   )}
                 </div>
 
-                <div className="w-full text-left bg-white px-3 py-2 rounded-xl border border-stone-200/70">
-                  <p className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">Status</p>
-                  <p className="text-xs font-bold text-stone-800 truncate">
-                    {formData.image?.startsWith('data:') 
-                      ? 'Local Device Image Loaded' 
-                      : formData.image 
-                      ? 'Active Image Assigned' 
-                      : 'Default Studio Fallback'}
-                  </p>
+                <div className="w-full space-y-2">
+                  <div className="text-left bg-white px-3 py-2 rounded-xl border border-stone-200/70">
+                    <p className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">Status</p>
+                    <p className="text-xs font-bold text-stone-800 truncate">
+                      {formData.image?.startsWith('data:') 
+                        ? 'Local Device Image Loaded' 
+                        : formData.image 
+                        ? 'Active Image Assigned' 
+                        : 'Default Studio Fallback'}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full py-2 px-3 bg-[#7A0F29] hover:bg-[#52091B] text-[#FFF7E8] rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Upload Image from Device</span>
+                  </button>
                 </div>
               </div>
 
@@ -712,8 +721,9 @@ export const AdminProductModal: React.FC<AdminProductModalProps> = ({
                       placeholder="https://images.unsplash.com/... or cloud asset URL"
                       className="w-full px-3.5 py-2.5 bg-white border border-stone-200 rounded-xl font-mono text-[11px] focus:outline-none focus:border-[#7A0F29]"
                     />
-                    <p className="text-[10px] text-stone-500">
-                      If an image is already loaded, you can safely leave this as is.
+                    <p className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" />
+                      <span>An image is already preserved. Entering a URL is never required to save.</span>
                     </p>
                   </div>
                 )}

@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { useCart } from '../context/CartContext';
+import { useStoreData } from '../context/StoreDataContext';
+import { isPublicPriceVisible } from '../types';
 import { X, Star, Sparkles, Plus, Minus, ShoppingBag, MapPin, Heart, Thermometer, Calendar } from 'lucide-react';
 import { sounds } from '../utils/audio';
 import { tapestryGoldBg } from '../data/products';
 
 export const ProductDetailModal: React.FC = () => {
-  const { selectedProductModal, setSelectedProductModal, addToCart, toggleWishlist, wishlist } = useCart();
+  const { selectedProductModal, setSelectedProductModal, addToCart, toggleWishlist, wishlist, openWaitlistModal } = useCart();
+  const { settings } = useStoreData();
   const [quantity, setQuantity] = useState(1);
   const [isGift, setIsGift] = useState(false);
 
@@ -150,68 +153,122 @@ export const ProductDetailModal: React.FC = () => {
             {/* Actions & Price */}
             <div className="pt-4 border-t border-[#F2C76E]/20 space-y-4">
               <div className="flex items-center justify-between">
-                <div>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-3xl font-black text-[#FFF7E8] font-display">₹{product.price * quantity}</span>
-                    {product.originalPrice && (
-                      <span className="text-xs text-[#FFF7E8]/40 line-through">
-                        ₹{product.originalPrice * quantity}
+                {isPublicPriceVisible(settings.waitlistMode) ? (
+                  <div>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-3xl font-black text-[#FFF7E8] font-display">
+                        ₹{product.price * quantity}
                       </span>
-                    )}
+                      {product.originalPrice && (
+                        <span className="text-xs text-[#FFF7E8]/40 line-through">
+                          ₹{product.originalPrice * quantity}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[10px] font-medium text-[#FFF7E8]/70">
+                      Includes insulated cryogenic ice box
+                    </span>
                   </div>
-                  <span className="text-[10px] font-medium text-[#FFF7E8]/70">
-                    Includes insulated cryogenic ice box
-                  </span>
-                </div>
+                ) : (
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl font-black text-[#F4BD38] font-display uppercase tracking-wider flex items-center gap-1.5">
+                        <Sparkles className="w-4 h-4 text-[#F4BD38]" /> Pre-Launch Drop
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-medium text-[#FFF7E8]/70">
+                      Signature collectible edition • Includes cryogenic packaging
+                    </span>
+                  </div>
+                )}
 
-                {/* Quantity adjuster */}
-                <div className="flex items-center gap-2 bg-[#3D0713] border border-[#F2C76E]/30 rounded-full px-3 py-1 shadow-inner">
-                  <button
-                    onClick={() => {
-                      sounds.playClick();
-                      setQuantity((q) => Math.max(1, q - 1));
-                    }}
-                    className="text-[#F2C76E] hover:bg-[#52091B] p-1 rounded-full"
-                    aria-label="Decrease quantity"
-                  >
-                    <Minus className="w-3.5 h-3.5" />
-                  </button>
-                  <span className="text-sm font-bold text-[#FFF7E8] w-5 text-center">{quantity}</span>
-                  <button
-                    onClick={() => {
-                      sounds.playClick();
-                      setQuantity((q) => q + 1);
-                    }}
-                    className="text-[#F2C76E] hover:bg-[#52091B] p-1 rounded-full"
-                    aria-label="Increase quantity"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+                {/* Quantity adjuster (only in normal shopping mode) */}
+                {!settings.waitlistMode && (
+                  <div className="flex items-center gap-2 bg-[#3D0713] border border-[#F2C76E]/30 rounded-full px-3 py-1 shadow-inner">
+                    <button
+                      onClick={() => {
+                        sounds.playClick();
+                        setQuantity((q) => Math.max(1, q - 1));
+                      }}
+                      className="text-[#F2C76E] hover:bg-[#52091B] p-1 rounded-full cursor-pointer"
+                      aria-label="Decrease quantity"
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
+                    <span className="text-sm font-bold text-[#FFF7E8] w-5 text-center">{quantity}</span>
+                    <button
+                      onClick={() => {
+                        sounds.playClick();
+                        setQuantity((q) => q + 1);
+                      }}
+                      className="text-[#F2C76E] hover:bg-[#52091B] p-1 rounded-full cursor-pointer"
+                      aria-label="Increase quantity"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
 
-              {/* Add & Wishlist buttons */}
-              <div className="flex gap-3">
-                <button
-                  onClick={handleAdd}
-                  className="flex-1 py-3.5 bg-[#F4BD38] hover:bg-[#FFF7E8] text-[#52091B] font-black text-xs uppercase tracking-widest rounded-full shadow-lg transition-all transform active:scale-95 flex items-center justify-center gap-2 border border-[#F4BD38]"
-                >
-                  <ShoppingBag className="w-4 h-4 text-[#52091B]" />
-                  <span>Add {quantity} Can{quantity > 1 ? 's' : ''} to Cart</span>
-                </button>
+              {settings.waitlistMode ? (
+                <div className="space-y-3">
+                  <div className="p-3.5 rounded-2xl bg-[#52091B]/80 border border-[#F4BD38]/30 flex items-start gap-2.5">
+                    <Sparkles className="w-4 h-4 text-[#F4BD38] mt-0.5 shrink-0" />
+                    <p className="text-xs text-[#FFF7E8]/90 leading-relaxed">
+                      We are preparing the first fresh batch. Join the waitlist to get priority access on launch day.
+                    </p>
+                  </div>
 
-                <button
-                  onClick={() => toggleWishlist(product.id)}
-                  className={`p-3.5 rounded-full border transition-all ${
-                    isWishlisted
-                      ? 'bg-[#F4BD38] text-[#52091B] border-[#F4BD38]'
-                      : 'bg-[#3D0713] text-[#F2C76E] border-[#F2C76E]/30 hover:bg-[#52091B]'
-                  }`}
-                  aria-label="Wishlist"
-                >
-                  <Heart className={`w-5 h-5 ${isWishlisted ? 'fill-current' : ''}`} />
-                </button>
-              </div>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        sounds.playClick();
+                        handleClose();
+                        openWaitlistModal(product.name);
+                      }}
+                      className="flex-1 py-3.5 bg-[#F4BD38] hover:bg-[#FFF7E8] text-[#52091B] font-black text-xs uppercase tracking-widest rounded-full shadow-lg transition-all transform active:scale-95 flex items-center justify-center gap-2 border border-[#F4BD38] cursor-pointer"
+                    >
+                      <Sparkles className="w-4 h-4 text-[#52091B]" />
+                      <span>Join the Waitlist</span>
+                    </button>
+
+                    <button
+                      onClick={() => toggleWishlist(product.id)}
+                      className={`p-3.5 rounded-full border transition-all cursor-pointer ${
+                        isWishlisted
+                          ? 'bg-[#F4BD38] text-[#52091B] border-[#F4BD38]'
+                          : 'bg-[#3D0713] text-[#F2C76E] border-[#F2C76E]/30 hover:bg-[#52091B]'
+                      }`}
+                      aria-label="Wishlist"
+                    >
+                      <Heart className={`w-5 h-5 ${isWishlisted ? 'fill-current' : ''}`} />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* Add & Wishlist buttons */
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleAdd}
+                    className="flex-1 py-3.5 bg-[#F4BD38] hover:bg-[#FFF7E8] text-[#52091B] font-black text-xs uppercase tracking-widest rounded-full shadow-lg transition-all transform active:scale-95 flex items-center justify-center gap-2 border border-[#F4BD38] cursor-pointer"
+                  >
+                    <ShoppingBag className="w-4 h-4 text-[#52091B]" />
+                    <span>Add {quantity} Can{quantity > 1 ? 's' : ''} to Cart</span>
+                  </button>
+
+                  <button
+                    onClick={() => toggleWishlist(product.id)}
+                    className={`p-3.5 rounded-full border transition-all cursor-pointer ${
+                      isWishlisted
+                        ? 'bg-[#F4BD38] text-[#52091B] border-[#F4BD38]'
+                        : 'bg-[#3D0713] text-[#F2C76E] border-[#F2C76E]/30 hover:bg-[#52091B]'
+                    }`}
+                    aria-label="Wishlist"
+                  >
+                    <Heart className={`w-5 h-5 ${isWishlisted ? 'fill-current' : ''}`} />
+                  </button>
+                </div>
+              )}
             </div>
 
           </div>

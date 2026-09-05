@@ -1,10 +1,13 @@
 import React, { useEffect } from 'react';
 import { useCart } from '../context/CartContext';
+import { useStoreData } from '../context/StoreDataContext';
+import { isPublicPriceVisible } from '../types';
 import { ShoppingBag, ArrowRight, CheckCircle2, X } from 'lucide-react';
 import { sounds } from '../utils/audio';
 
 export const AddToCartNotification: React.FC = () => {
   const { lastAddedNotification, clearLastAddedNotification, openCart, totalItems, subtotal } = useCart();
+  const { settings } = useStoreData();
 
   useEffect(() => {
     if (!lastAddedNotification) return;
@@ -20,6 +23,7 @@ export const AddToCartNotification: React.FC = () => {
   if (!lastAddedNotification) return null;
 
   const { product, quantity } = lastAddedNotification;
+  const showPrice = isPublicPriceVisible(settings.waitlistMode);
 
   return (
     <div className="fixed bottom-6 right-4 sm:right-6 z-50 max-w-md w-[calc(100vw-2rem)] sm:w-auto animate-in slide-in-from-bottom-5 fade-in duration-300">
@@ -48,7 +52,7 @@ export const AddToCartNotification: React.FC = () => {
           </div>
           <p className="text-sm font-black text-[#FFF7E8] truncate font-display">{product.name}</p>
           <p className="text-[11px] text-[#F2C76E]/90 font-medium">
-            Cart: {totalItems} {totalItems === 1 ? 'pop' : 'pops'} • ₹{subtotal}
+            Cart: {totalItems} {totalItems === 1 ? 'pop' : 'pops'} {showPrice && `• ₹${subtotal}`}
           </p>
         </div>
 

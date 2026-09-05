@@ -11,7 +11,8 @@ import {
   ShieldCheck, 
   Bell, 
   RotateCcw,
-  Check
+  Check,
+  Sparkles
 } from 'lucide-react';
 import { sounds } from '../../../utils/audio';
 
@@ -146,6 +147,58 @@ export const AdminSettingsTab: React.FC = () => {
                 onChange={(e) => setFormData({ ...formData, taxRatePercent: Number(e.target.value) })}
                 className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl"
               />
+            </div>
+          </div>
+        </div>
+
+        {/* Meta Ads Campaign & Waitlist Mode Toggle (Instruction 31) */}
+        <div className={`border rounded-3xl p-6 shadow-xs space-y-4 transition-all ${
+          formData.waitlistMode 
+            ? 'bg-amber-50/60 border-amber-300' 
+            : 'bg-white border-stone-200'
+        }`}>
+          <div className="flex items-center justify-between border-b border-stone-200/60 pb-3">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-[#7A0F29]" />
+              <div>
+                <h3 className="text-sm font-black font-display text-[#171316]">
+                  Waitlist Mode (Pre-Launch Campaign)
+                </h3>
+                <p className="text-[11px] text-stone-500">
+                  Switch the website between direct e-commerce checkout and a 1-week Meta Ads VIP waitlist campaign.
+                </p>
+              </div>
+            </div>
+
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!!formData.waitlistMode}
+                onChange={(e) => setFormData({ ...formData, waitlistMode: e.target.checked })}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-stone-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#7A0F29]"></div>
+            </label>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <div className="p-3 bg-white rounded-2xl border border-stone-200/80">
+              <span className="font-bold text-[#171316] block">When Enabled:</span>
+              <ul className="text-[11px] text-stone-600 mt-1 space-y-1 list-disc list-inside">
+                <li>Direct purchasing & checkout are paused</li>
+                <li>All product CTAs say "Join the Waitlist"</li>
+                <li>Top pre-launch announcement banner is shown</li>
+                <li>Meta Ads UTM & fbclid attribution is tracked</li>
+              </ul>
+            </div>
+            <div className="p-3 bg-white rounded-2xl border border-stone-200/80">
+              <span className="font-bold text-[#171316] block">When Disabled:</span>
+              <ul className="text-[11px] text-stone-600 mt-1 space-y-1 list-disc list-inside">
+                <li>Full e-commerce purchasing is active</li>
+                <li>Customers can add to cart and place orders</li>
+                <li>Pre-orders and direct checkout work normally</li>
+                <li>Effortless single-click return to full shop mode</li>
+              </ul>
             </div>
           </div>
         </div>

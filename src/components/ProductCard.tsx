@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Product } from '../types';
+import { Product, isPublicPriceVisible } from '../types';
 import { useCart } from '../context/CartContext';
+import { useStoreData } from '../context/StoreDataContext';
 import { Sparkles, Heart, Plus, Star, MapPin, Eye, Check } from 'lucide-react';
 import { sounds } from '../utils/audio';
 
@@ -9,7 +10,8 @@ interface ProductCardProps {
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
-  const { addToCart, toggleWishlist, wishlist, setSelectedProductModal } = useCart();
+  const { addToCart, toggleWishlist, wishlist, setSelectedProductModal, openWaitlistModal } = useCart();
+  const { settings } = useStoreData();
   const [justAdded, setJustAdded] = useState(false);
   const isWishlisted = wishlist.includes(product.id);
 
@@ -20,6 +22,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
 
   const handleAddClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (settings.waitlistMode) {
+      sounds.playClick();
+      openWaitlistModal(product.name);
+      return;
+    }
     addToCart(product, 1);
     setJustAdded(true);
     setTimeout(() => setJustAdded(false), 1400);
@@ -40,7 +47,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
 
       {/* Top badges & Wishlist */}
       <div className="flex items-center justify-between z-10">
-        {product.badge ? (
+        {settings.waitlistMode ? (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-linear-to-r from-[#F4BD38] to-[#E5A93C] text-[#52091B] text-[10px] font-black uppercase tracking-widest shadow-md">
+            <Sparkles className="w-2.5 h-2.5 animate-pulse" />
+            Launching Soon
+          </span>
+        ) : product.badge ? (
           <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#F4BD38] text-[#52091B] text-[10px] font-black uppercase tracking-widest shadow-md transition-transform group-hover:scale-105">
             <Sparkles className="w-2.5 h-2.5 animate-spin" style={{ animationDuration: '6s' }} />
             {product.badge}
@@ -115,37 +127,57 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
 
       {/* Price & Add to Cart Footer */}
       <div className="mt-4 pt-3.5 border-t border-[#F2C76E]/20 flex items-center justify-between z-10">
-        <div>
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-xl font-black text-[#F2C76E] font-display">₹{product.price}</span>
-            {product.originalPrice && (
-              <span className="text-xs text-[#FFF7E8]/40 line-through">₹{product.originalPrice}</span>
-            )}
+        {isPublicPriceVisible(settings.waitlistMode) ? (
+          <div>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-xl font-black text-[#F2C76E] font-display">₹{product.price}</span>
+              {product.originalPrice && (
+                <span className="text-xs text-[#FFF7E8]/40 line-through">₹{product.originalPrice}</span>
+              )}
+            </div>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-[#FFF7E8]/60">Collectible Can</span>
           </div>
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-[#FFF7E8]/60">Collectible Can</span>
-        </div>
+        ) : (
+          <div>
+            <span className="text-xs font-bold text-[#F4BD38] uppercase tracking-wider flex items-center gap-1">
+              <Sparkles className="w-3 h-3 text-[#F4BD38]" /> Drop 01
+            </span>
+            <span className="text-[10px] font-medium uppercase tracking-wider text-[#FFF7E8]/60 block">Collectible Can</span>
+          </div>
+        )}
 
-        <button
-          onClick={handleAddClick}
-          className={`px-5 py-2.5 font-bold text-xs uppercase tracking-widest rounded-full shadow-md hover:shadow-lg transition-all transform active:scale-95 flex items-center gap-1.5 border btn-shimmer-sheen ${
-            justAdded
-              ? 'bg-emerald-500 text-white border-emerald-400 scale-105 shadow-emerald-500/30'
-              : 'bg-[#F4BD38] hover:bg-[#FFF7E8] text-[#52091B] border-[#52091B]'
-          }`}
-          aria-label={`Add ${product.name} to cart`}
-        >
-          {justAdded ? (
-            <>
-              <Check className="w-3.5 h-3.5 text-white" />
-              <span>Added!</span>
-            </>
-          ) : (
-            <>
-              <Plus className="w-3.5 h-3.5 text-[#52091B]" />
-              <span>Add</span>
-            </>
-          )}
-        </button>
+        {settings.waitlistMode ? (
+          <button
+            onClick={handleAddClick}
+            className="px-4 py-2.5 font-bold text-xs uppercase tracking-wider rounded-full shadow-md hover:shadow-lg transition-all transform active:scale-95 flex items-center gap-1.5 border btn-shimmer-sheen bg-[#F4BD38] hover:bg-[#FFF7E8] text-[#52091B] border-[#52091B] cursor-pointer"
+            aria-label={`Join the waitlist for ${product.name}`}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-[#52091B]" />
+            <span>Join the Waitlist</span>
+          </button>
+        ) : (
+          <button
+            onClick={handleAddClick}
+            className={`px-5 py-2.5 font-bold text-xs uppercase tracking-widest rounded-full shadow-md hover:shadow-lg transition-all transform active:scale-95 flex items-center gap-1.5 border btn-shimmer-sheen ${
+              justAdded
+                ? 'bg-emerald-500 text-white border-emerald-400 scale-105 shadow-emerald-500/30'
+                : 'bg-[#F4BD38] hover:bg-[#FFF7E8] text-[#52091B] border-[#52091B]'
+            }`}
+            aria-label={`Add ${product.name} to cart`}
+          >
+            {justAdded ? (
+              <>
+                <Check className="w-3.5 h-3.5 text-white" />
+                <span>Added!</span>
+              </>
+            ) : (
+              <>
+                <Plus className="w-3.5 h-3.5 text-[#52091B]" />
+                <span>Add</span>
+              </>
+            )}
+          </button>
+        )}
       </div>
     </div>
   );

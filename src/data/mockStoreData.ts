@@ -133,7 +133,8 @@ export const INITIAL_SETTINGS: StoreSettings = {
   enableCards: true,
   lowStockGlobalThreshold: 15,
   autoApproveReviews: false,
-  maintenanceMode: false
+  maintenanceMode: false,
+  waitlistMode: true
 };
 
 // EMPTY ANALYTICS TEMPLATE — Will be calculated dynamically from real orders

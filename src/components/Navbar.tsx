@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { BrandLogo } from './BrandLogo';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
+import { useStoreData } from '../context/StoreDataContext';
 import { 
   Search, 
   ShoppingBag, 
@@ -21,7 +22,8 @@ import {
 import { sounds } from '../utils/audio';
 
 export const Navbar: React.FC = () => {
-  const { totalItems, openCart, setSearchOpen, isMuted, toggleAudioMute } = useCart();
+  const { totalItems, openCart, setSearchOpen, isMuted, toggleAudioMute, openWaitlistModal } = useCart();
+  const { settings } = useStoreData();
   const { 
     currentUser, 
     isAuthenticated, 
@@ -313,14 +315,28 @@ export const Navbar: React.FC = () => {
               )}
             </div>
 
-            {/* Editorial Primary Action CTA: ORDER NOW */}
-            <button
-              id="navbar-ordernow-btn"
-              onClick={() => handleNavClick('#menu')}
-              className="inline-flex items-center bg-[#F4BD38] text-[#52091B] px-5 py-2 rounded-full text-xs font-black uppercase tracking-widest hover:bg-[#FFF7E8] transition-all shadow-md active:scale-95 border border-[#F4BD38] btn-shimmer-sheen cursor-pointer"
-            >
-              ORDER NOW
-            </button>
+            {/* Editorial Primary Action CTA: ORDER NOW or JOIN WAITLIST */}
+            {settings.waitlistMode ? (
+              <button
+                id="navbar-ordernow-btn"
+                onClick={() => {
+                  sounds.playClick();
+                  openWaitlistModal();
+                }}
+                className="inline-flex items-center bg-[#F4BD38] text-[#52091B] px-5 py-2 rounded-full text-xs font-black uppercase tracking-widest hover:bg-[#FFF7E8] transition-all shadow-md active:scale-95 border border-[#F4BD38] btn-shimmer-sheen cursor-pointer gap-1.5"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-[#52091B]" />
+                <span>JOIN WAITLIST</span>
+              </button>
+            ) : (
+              <button
+                id="navbar-ordernow-btn"
+                onClick={() => handleNavClick('#menu')}
+                className="inline-flex items-center bg-[#F4BD38] text-[#52091B] px-5 py-2 rounded-full text-xs font-black uppercase tracking-widest hover:bg-[#FFF7E8] transition-all shadow-md active:scale-95 border border-[#F4BD38] btn-shimmer-sheen cursor-pointer"
+              >
+                ORDER NOW
+              </button>
+            )}
           </div>
 
           {/* Mobile Right: Account Icon & Three-Line Hamburger Menu Icon [☰] */}
@@ -430,16 +446,31 @@ export const Navbar: React.FC = () => {
               )}
             </button>
 
-            {/* Order Now CTA */}
+            {/* Order Now or Join Waitlist CTA */}
             <div className="pt-3">
-              <button
-                id="mobile-nav-ordernow-btn"
-                onClick={() => handleNavClick('#menu')}
-                className="w-full py-3.5 bg-[#F4BD38] text-[#52091B] font-black text-xs uppercase tracking-widest rounded-full text-center shadow-lg hover:bg-[#FFF7E8] active:scale-98 transition-all flex items-center justify-center gap-2 btn-shimmer-sheen cursor-pointer"
-              >
-                <Sparkles className="w-4 h-4 text-[#52091B]" />
-                ORDER NOW
-              </button>
+              {settings.waitlistMode ? (
+                <button
+                  id="mobile-nav-ordernow-btn"
+                  onClick={() => {
+                    sounds.playClick();
+                    setMobileMenuOpen(false);
+                    openWaitlistModal();
+                  }}
+                  className="w-full py-3.5 bg-[#F4BD38] text-[#52091B] font-black text-xs uppercase tracking-widest rounded-full text-center shadow-lg hover:bg-[#FFF7E8] active:scale-98 transition-all flex items-center justify-center gap-2 btn-shimmer-sheen cursor-pointer"
+                >
+                  <Sparkles className="w-4 h-4 text-[#52091B]" />
+                  JOIN THE WAITLIST
+                </button>
+              ) : (
+                <button
+                  id="mobile-nav-ordernow-btn"
+                  onClick={() => handleNavClick('#menu')}
+                  className="w-full py-3.5 bg-[#F4BD38] text-[#52091B] font-black text-xs uppercase tracking-widest rounded-full text-center shadow-lg hover:bg-[#FFF7E8] active:scale-98 transition-all flex items-center justify-center gap-2 btn-shimmer-sheen cursor-pointer"
+                >
+                  <Sparkles className="w-4 h-4 text-[#52091B]" />
+                  ORDER NOW
+                </button>
+              )}
             </div>
           </div>
         )}

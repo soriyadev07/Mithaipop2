@@ -45,6 +45,12 @@ interface CartContextType {
   triggerConfetti: () => void;
   subtotal: number;
   totalItems: number;
+  waitlistOpen: boolean;
+  setWaitlistOpen: (open: boolean) => void;
+  openWaitlistModal: (preferredFlavor?: string) => void;
+  closeWaitlistModal: () => void;
+  waitlistPreferredFlavor: string;
+  setWaitlistPreferredFlavor: (flavor: string) => void;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -94,6 +100,22 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [selectedProductModal, setSelectedProductModal] = useState<Product | null>(null);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [waitlistOpen, setWaitlistOpen] = useState(false);
+  const [waitlistPreferredFlavor, setWaitlistPreferredFlavor] = useState('');
+
+  const openWaitlistModal = (preferredFlavor?: string) => {
+    if (preferredFlavor) {
+      setWaitlistPreferredFlavor(preferredFlavor);
+    }
+    setIsOpen(false);
+    setCheckoutOpen(false);
+    setSelectedProductModal(null);
+    setWaitlistOpen(true);
+  };
+
+  const closeWaitlistModal = () => {
+    setWaitlistOpen(false);
+  };
 
   useEffect(() => {
     try {
@@ -349,6 +371,12 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         triggerConfetti,
         subtotal,
         totalItems,
+        waitlistOpen,
+        setWaitlistOpen,
+        openWaitlistModal,
+        closeWaitlistModal,
+        waitlistPreferredFlavor,
+        setWaitlistPreferredFlavor,
       }}
     >
       {children}

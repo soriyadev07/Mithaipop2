@@ -20,6 +20,7 @@ import {
   History,
   Settings,
   User,
+  UserCheck,
   LogOut,
   X,
   ShieldCheck
@@ -42,7 +43,8 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ mobileOpen, onCloseM
     reviews, 
     giftOrders, 
     supportTickets,
-    notifications 
+    notifications,
+    waitlistEntries
   } = useStoreData();
 
   // Badge calculations
@@ -58,6 +60,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ mobileOpen, onCloseM
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'orders', label: 'Orders', icon: ShoppingBag, badge: pendingOrdersCount > 0 ? `${pendingOrdersCount}` : undefined },
     { id: 'preorders', label: 'Pre-Orders', icon: Sparkles, count: preOrders.length },
+    { id: 'waitlist', label: 'Waitlist', icon: UserCheck, count: waitlistEntries.length, badge: waitlistEntries.length > 0 ? `${waitlistEntries.length}` : undefined },
     { id: 'customers', label: 'Customers', icon: Users },
     { id: 'products', label: 'Products', icon: Package, count: products.length },
     { id: 'inventory', label: 'Inventory', icon: Layers, alert: lowStockCount > 0 ? `${lowStockCount} Low` : undefined },

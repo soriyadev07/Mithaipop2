@@ -35,7 +35,9 @@ export const AdminDashboardOverview: React.FC<AdminDashboardOverviewProps> = ({
     preOrders, 
     inventory, 
     notifications, 
-    exportDataToCSV 
+    exportDataToCSV,
+    waitlistEntries,
+    settings 
   } = useStoreData();
 
   // Metrics calculation
@@ -108,6 +110,37 @@ export const AdminDashboardOverview: React.FC<AdminDashboardOverviewProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Active Waitlist Campaign Banner */}
+      {settings.waitlistMode && (
+        <div 
+          onClick={() => setActiveAdminTab('waitlist')}
+          className="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs cursor-pointer hover:bg-amber-100/70 transition-all group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-200/80 text-amber-900 flex items-center justify-center font-black">
+              <Sparkles className="w-5 h-5 text-amber-800" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-black text-amber-950">
+                  Pre-Launch Waitlist Campaign Active
+                </h3>
+                <span className="px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 text-[10px] font-black uppercase">
+                  {waitlistEntries.length} Leads
+                </span>
+              </div>
+              <p className="text-xs text-amber-800/80 mt-0.5">
+                Public prices and checkout are disabled. Visitors join the VIP drop list.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1 text-xs font-bold text-amber-900 group-hover:translate-x-1 transition-transform">
+            <span>View All Waitlist Leads</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </div>
+        </div>
+      )}
 
       {/* Row 1 Metrics: Orders, Revenue, Pending Orders, Pre-Orders */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">

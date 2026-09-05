@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
-import { Trophy, ShoppingBag, Eye } from 'lucide-react';
+import { Trophy, ShoppingBag, Eye, Sparkles } from 'lucide-react';
 import { PRODUCTS } from '../data/products';
 import { useCart } from '../context/CartContext';
+import { useStoreData } from '../context/StoreDataContext';
 import { ScrollReveal } from './ScrollReveal';
+import { sounds } from '../utils/audio';
 
 export const CollectibleShowcase: React.FC = () => {
-  const { addToCart, setSelectedProductModal } = useCart();
+  const { addToCart, setSelectedProductModal, openWaitlistModal } = useCart();
+  const { settings } = useStoreData();
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   return (
@@ -89,13 +92,26 @@ export const CollectibleShowcase: React.FC = () => {
                           <Eye className="w-4 h-4" />
                         </button>
 
-                        <button
-                          onClick={() => addToCart(product, 1)}
-                          className="px-4 py-2 bg-[#F4BD38] hover:bg-[#FFF7E8] text-[#52091B] font-bold text-xs uppercase tracking-widest rounded-full shadow-md transition-all transform active:scale-95 flex items-center gap-1.5 border border-[#52091B] btn-shimmer-sheen"
-                        >
-                          <ShoppingBag className="w-3.5 h-3.5 text-[#52091B]" />
-                          <span>Collect</span>
-                        </button>
+                        {settings.waitlistMode ? (
+                          <button
+                            onClick={() => {
+                              sounds.playClick();
+                              openWaitlistModal(product.name);
+                            }}
+                            className="px-4 py-2 bg-[#F4BD38] hover:bg-[#FFF7E8] text-[#52091B] font-bold text-xs uppercase tracking-widest rounded-full shadow-md transition-all transform active:scale-95 flex items-center gap-1.5 border border-[#52091B] btn-shimmer-sheen cursor-pointer"
+                          >
+                            <Sparkles className="w-3.5 h-3.5 text-[#52091B]" />
+                            <span>Join Waitlist</span>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => addToCart(product, 1)}
+                            className="px-4 py-2 bg-[#F4BD38] hover:bg-[#FFF7E8] text-[#52091B] font-bold text-xs uppercase tracking-widest rounded-full shadow-md transition-all transform active:scale-95 flex items-center gap-1.5 border border-[#52091B] btn-shimmer-sheen cursor-pointer"
+                          >
+                            <ShoppingBag className="w-3.5 h-3.5 text-[#52091B]" />
+                            <span>Collect</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

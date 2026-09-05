@@ -81,6 +81,11 @@ class SoundEffects {
     }
   }
 
+  // Alias for playCanPop
+  public playPop() {
+    this.playCanPop();
+  }
+
   // Soft tactile click
   public playClick() {
     if (this.isMuted) return;

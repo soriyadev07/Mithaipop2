@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { CITY_STORIES } from '../data/stories';
-import { MapPin, ArrowRight, Quote, Compass } from 'lucide-react';
+import { MapPin, ArrowRight, Quote, Compass, Sparkles } from 'lucide-react';
 import { sounds } from '../utils/audio';
 import { useCart } from '../context/CartContext';
+import { useStoreData } from '../context/StoreDataContext';
 import { PRODUCTS } from '../data/products';
 import { ScrollReveal } from './ScrollReveal';
 
 export const CityStorySection: React.FC = () => {
   const [selectedCityId, setSelectedCityId] = useState<string>('delhi');
-  const { setSelectedProductModal, addToCart } = useCart();
+  const { setSelectedProductModal, addToCart, openWaitlistModal } = useCart();
+  const { settings } = useStoreData();
 
   const currentCity = CITY_STORIES.find((c) => c.id === selectedCityId) || CITY_STORIES[0];
   const matchingProduct = PRODUCTS.find((p) => p.id === currentCity.popProductId) || PRODUCTS[0];
@@ -91,12 +93,25 @@ export const CityStorySection: React.FC = () => {
                       <h3 className="text-xl font-black text-[#FFF7E8] font-display italic">{matchingProduct.name}</h3>
                       <p className="text-xs font-bold text-[#F2C76E] uppercase tracking-wide">{currentCity.dishRemix}</p>
                     </div>
-                    <button
-                      onClick={() => addToCart(matchingProduct, 1)}
-                      className="px-4 py-2 bg-[#F4BD38] hover:bg-[#FFF7E8] text-[#52091B] font-bold text-xs uppercase tracking-widest rounded-full shadow-sm transition-all transform active:scale-95 border border-[#52091B] btn-shimmer-sheen"
-                    >
-                      Quick Add ₹{matchingProduct.price}
-                    </button>
+                    {settings.waitlistMode ? (
+                      <button
+                        onClick={() => {
+                          sounds.playClick();
+                          openWaitlistModal(matchingProduct.name);
+                        }}
+                        className="px-4 py-2 bg-[#F4BD38] hover:bg-[#FFF7E8] text-[#52091B] font-bold text-xs uppercase tracking-widest rounded-full shadow-sm transition-all transform active:scale-95 border border-[#52091B] btn-shimmer-sheen cursor-pointer flex items-center gap-1.5"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-[#52091B]" />
+                        <span>Join Waitlist</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => addToCart(matchingProduct, 1)}
+                        className="px-4 py-2 bg-[#F4BD38] hover:bg-[#FFF7E8] text-[#52091B] font-bold text-xs uppercase tracking-widest rounded-full shadow-sm transition-all transform active:scale-95 border border-[#52091B] btn-shimmer-sheen cursor-pointer"
+                      >
+                        Quick Add ₹{matchingProduct.price}
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

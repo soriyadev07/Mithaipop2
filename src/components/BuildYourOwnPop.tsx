@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { INGREDIENT_OPTIONS } from '../data/reviews';
-import { CustomPopIngredient, Product } from '../types';
+import { CustomPopIngredient, Product, isPublicPriceVisible } from '../types';
 import { Sliders, ShoppingBag, Share2, Sparkles, Check } from 'lucide-react';
 import { sounds } from '../utils/audio';
 import { useCart } from '../context/CartContext';
+import { useStoreData } from '../context/StoreDataContext';
 import { delhiPopImg } from '../data/products';
 import { ScrollReveal } from './ScrollReveal';
 
 export const BuildYourOwnPop: React.FC = () => {
-  const { addToCart } = useCart();
+  const { addToCart, openWaitlistModal } = useCart();
+  const { settings } = useStoreData();
 
   const bases = INGREDIENT_OPTIONS.filter((i) => i.category === 'base');
   const creams = INGREDIENT_OPTIONS.filter((i) => i.category === 'cream');
@@ -335,21 +337,52 @@ export const BuildYourOwnPop: React.FC = () => {
                 </div>
               </div>
 
-              {/* Nutrition & Price & Add to Cart */}
-              <div className="pt-3 border-t border-[#F2C76E]/20 flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-2xl font-black text-[#F2C76E] font-display">₹299</p>
-                  <p className="text-[10px] text-[#FFF7E8]/60 font-medium">~{totalCalories} kcal • Single Batch</p>
+              {/* Nutrition & Price & Action Button */}
+              <div className="pt-3 border-t border-[#F2C76E]/20 space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  {isPublicPriceVisible(settings.waitlistMode) ? (
+                    <div>
+                      <p className="text-2xl font-black text-[#F2C76E] font-display">₹299</p>
+                      <p className="text-[10px] text-[#FFF7E8]/60 font-medium">~{totalCalories} kcal • Single Batch</p>
+                    </div>
+                  ) : (
+                    <div>
+                      <span className="text-xs font-black text-[#F4BD38] uppercase tracking-wider flex items-center gap-1">
+                        <Sparkles className="w-3.5 h-3.5 text-[#F4BD38]" /> Custom Lab Pop
+                      </span>
+                      <p className="text-[10px] text-[#FFF7E8]/60 font-medium">~{totalCalories} kcal • Single Batch</p>
+                    </div>
+                  )}
+
+                  {settings.waitlistMode ? (
+                    <button
+                      id="create-my-pop-btn"
+                      onClick={() => {
+                        sounds.playCelebration();
+                        openWaitlistModal(customPopName);
+                      }}
+                      className="px-5 py-3 bg-[#F4BD38] hover:bg-[#FFF7E8] text-[#52091B] font-black text-xs uppercase tracking-widest rounded-full shadow-md transition-all transform active:scale-95 flex items-center gap-2 border border-[#F4BD38] btn-shimmer-sheen cursor-pointer"
+                    >
+                      <Sparkles className="w-4 h-4 text-[#7A0F29]" />
+                      <span>Join the Waitlist</span>
+                    </button>
+                  ) : (
+                    <button
+                      id="create-my-pop-btn"
+                      onClick={handleOrderCustomPop}
+                      className="px-5 py-3 bg-[#F4BD38] hover:bg-[#FFF7E8] text-[#52091B] font-bold text-xs uppercase tracking-widest rounded-full shadow-md transition-all transform active:scale-95 flex items-center gap-2 border border-[#F4BD38] btn-shimmer-sheen cursor-pointer"
+                    >
+                      <ShoppingBag className="w-4 h-4 text-[#7A0F29]" />
+                      <span>Add My Pop to Cart</span>
+                    </button>
+                  )}
                 </div>
 
-                <button
-                  id="create-my-pop-btn"
-                  onClick={handleOrderCustomPop}
-                  className="px-5 py-3 bg-[#F4BD38] hover:bg-[#FFF7E8] text-[#52091B] font-bold text-xs uppercase tracking-widest rounded-full shadow-md transition-all transform active:scale-95 flex items-center gap-2 border border-[#F4BD38] btn-shimmer-sheen cursor-pointer"
-                >
-                  <ShoppingBag className="w-4 h-4 text-[#7A0F29]" />
-                  <span>Add My Pop to Cart</span>
-                </button>
+                {settings.waitlistMode && (
+                  <p className="text-[11px] text-[#FFD6B8] font-medium text-center sm:text-right">
+                    Save your custom creation. Be the first to try it when we launch.
+                  </p>
+                )}
               </div>
 
             </div>

@@ -8,6 +8,7 @@ import { AdminSidebar } from './AdminSidebar';
 import { AdminDashboardOverview } from './tabs/AdminDashboardOverview';
 import { AdminOrdersTab } from './tabs/AdminOrdersTab';
 import { AdminPreOrdersTab } from './tabs/AdminPreOrdersTab';
+import { AdminWaitlistTab } from './tabs/AdminWaitlistTab';
 import { AdminCustomersTab } from './tabs/AdminCustomersTab';
 import { AdminProductsTab } from './tabs/AdminProductsTab';
 import { AdminInventoryTab } from './tabs/AdminInventoryTab';
@@ -113,6 +114,10 @@ export const AdminDashboard: React.FC = () => {
 
             {activeAdminTab === 'preorders' && (
               <AdminPreOrdersTab />
+            )}
+
+            {activeAdminTab === 'waitlist' && (
+              <AdminWaitlistTab />
             )}
 
             {activeAdminTab === 'customers' && (

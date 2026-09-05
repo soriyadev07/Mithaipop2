@@ -12,7 +12,8 @@ import {
   StoreSettings,
   OrderStatus,
   PreOrderStatus,
-  Review
+  Review,
+  WaitlistEntry
 } from '../types';
 import {
   INITIAL_ORDERS,
@@ -120,9 +121,19 @@ interface StoreDataContextType {
   
   // Settings actions
   updateSettings: (newSettings: Partial<StoreSettings>) => void;
+  storeSettings: StoreSettings;
+  updateStoreSettings: (newSettings: Partial<StoreSettings>) => void;
+  resetStoreData: () => void;
+
+  // Waitlist Campaign actions
+  waitlistEntries: WaitlistEntry[];
+  addWaitlistSignup: (signup: Omit<WaitlistEntry, 'id' | 'dateJoined'>) => Promise<{ entry: WaitlistEntry; isDuplicate: boolean }>;
+  deleteWaitlistEntry: (id: string) => void;
+  exportWaitlistToCSV: () => void;
+  reloadWaitlistFromDatabase: () => Promise<void>;
   
   // CSV Export utility
-  exportDataToCSV: (type: 'orders' | 'preorders' | 'inventory' | 'customers' | 'coupons' | 'payments' | 'products') => void;
+  exportDataToCSV: (type: 'orders' | 'preorders' | 'inventory' | 'customers' | 'coupons' | 'payments' | 'products' | 'waitlist') => void;
 }
 
 const StoreDataContext = createContext<StoreDataContextType | undefined>(undefined);
@@ -302,9 +313,29 @@ export const StoreDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [settings, setSettings] = useState<StoreSettings>(() => {
     try {
       const stored = localStorage.getItem('mithai_pop_settings');
-      if (stored) return JSON.parse(stored);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return {
+          ...INITIAL_SETTINGS,
+          ...parsed,
+          // Ensure waitlistMode is explicitly true by default if not set
+          waitlistMode: parsed.waitlistMode !== undefined ? parsed.waitlistMode : true
+        };
+      }
     } catch {}
     return INITIAL_SETTINGS;
+  });
+
+  // Waitlist Entries - zero fake data by default; only real user submissions
+  const [waitlistEntries, setWaitlistEntries] = useState<WaitlistEntry[]>(() => {
+    try {
+      const stored = localStorage.getItem('mithai_pop_waitlist');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return [];
   });
 
   // Analytics timeframe
@@ -350,6 +381,10 @@ export const StoreDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   useEffect(() => {
     try { localStorage.setItem('mithai_pop_settings', JSON.stringify(settings)); } catch {}
   }, [settings]);
+
+  useEffect(() => {
+    try { localStorage.setItem('mithai_pop_waitlist', JSON.stringify(waitlistEntries)); } catch {}
+  }, [waitlistEntries]);
 
   // Activity log helper
   const logActivity = (action: string, targetType: ActivityLog['targetType'], targetId?: string, details?: string, adminName: string = 'Priya Varma') => {
@@ -1142,7 +1177,7 @@ export const StoreDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   // Export CSV
-  const exportDataToCSV = (type: 'orders' | 'preorders' | 'inventory' | 'customers' | 'coupons' | 'payments' | 'products') => {
+  const exportDataToCSV = (type: 'orders' | 'preorders' | 'inventory' | 'customers' | 'coupons' | 'payments' | 'products' | 'waitlist' | string) => {
     let headers: string[] = [];
     let rows: string[][] = [];
 
@@ -1251,6 +1286,39 @@ export const StoreDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         (p.inventoryCount ?? 50).toString(),
         (p.inventoryCount ?? 50) > 0 ? 'In Stock' : 'Out of Stock'
       ]);
+    } else if (type === 'waitlist') {
+      headers = [
+        'Full Name',
+        'Email',
+        'Phone',
+        'City',
+        'Favorite Pop',
+        'Referral Source',
+        'UTM Source',
+        'UTM Medium',
+        'UTM Campaign',
+        'UTM Content',
+        'UTM Term',
+        'FBCLID',
+        'Consent',
+        'Date Joined'
+      ];
+      rows = waitlistEntries.map((w) => [
+        w.fullName,
+        w.email,
+        w.phone,
+        w.city || '',
+        w.favoritePop || w.preferredFlavor || '',
+        w.referralSource || '',
+        w.utmSource || '',
+        w.utmMedium || '',
+        w.utmCampaign || '',
+        w.utmContent || '',
+        w.utmTerm || '',
+        w.fbclid || '',
+        w.consent ? 'true' : 'false',
+        w.dateJoined
+      ]);
     }
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.map((val) => `"${(val || '').replace(/"/g, '""')}"`).join(','))].join('\n');
@@ -1262,6 +1330,168 @@ export const StoreDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     link.click();
     document.body.removeChild(link);
     sounds.playCanPop();
+  };
+
+  const exportWaitlistToCSV = () => {
+    exportDataToCSV('waitlist');
+  };
+
+  const reloadWaitlistFromDatabase = useCallback(async () => {
+    if (!supabase || !isDatabaseConnected) return;
+    try {
+      const { data, error } = await supabase
+        .from('waitlist_signups')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        return;
+      }
+
+      if (data && Array.isArray(data)) {
+        const mapped: WaitlistEntry[] = data.map((row: any) => ({
+          id: row.id ? String(row.id) : `wl_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          fullName: row.full_name || '',
+          email: row.email || '',
+          phone: row.phone || '',
+          city: row.city || undefined,
+          favoritePop: row.favorite_pop || row.preferred_flavor || undefined,
+          preferredFlavor: row.favorite_pop || row.preferred_flavor || undefined,
+          referralSource: row.referral_source || undefined,
+          source: row.source || (row.utm_source ? 'Meta Ads' : 'Direct / Organic'),
+          campaign: row.campaign || row.utm_campaign || 'Website Direct',
+          utmSource: row.utm_source || undefined,
+          utmMedium: row.utm_medium || undefined,
+          utmCampaign: row.utm_campaign || undefined,
+          utmContent: row.utm_content || undefined,
+          utmTerm: row.utm_term || undefined,
+          fbclid: row.fbclid || undefined,
+          consent: Boolean(row.consent),
+          dateJoined: row.created_at || new Date().toISOString()
+        }));
+        setWaitlistEntries(mapped);
+        try {
+          localStorage.setItem('mithai_pop_waitlist', JSON.stringify(mapped));
+        } catch {}
+      }
+    } catch {}
+  }, [isDatabaseConnected]);
+
+  useEffect(() => {
+    reloadWaitlistFromDatabase();
+  }, [reloadWaitlistFromDatabase]);
+
+  const addWaitlistSignup = async (signupData: Omit<WaitlistEntry, 'id' | 'dateJoined'>): Promise<{ entry: WaitlistEntry; isDuplicate: boolean }> => {
+    const existing = waitlistEntries.find(
+      (w) => w.email.trim().toLowerCase() === signupData.email.trim().toLowerCase()
+    );
+
+    if (existing) {
+      // Update entry with latest attribution or preferred flavor without duplicating
+      const updatedEntry: WaitlistEntry = {
+        ...existing,
+        city: signupData.city || existing.city,
+        favoritePop: signupData.favoritePop || signupData.preferredFlavor || existing.favoritePop,
+        preferredFlavor: signupData.preferredFlavor || signupData.favoritePop || existing.preferredFlavor,
+        referralSource: signupData.referralSource || existing.referralSource,
+        utmSource: signupData.utmSource || existing.utmSource,
+        utmMedium: signupData.utmMedium || existing.utmMedium,
+        utmCampaign: signupData.utmCampaign || existing.utmCampaign,
+        utmContent: signupData.utmContent || existing.utmContent,
+        utmTerm: signupData.utmTerm || existing.utmTerm,
+        fbclid: signupData.fbclid || existing.fbclid,
+      };
+
+      setWaitlistEntries((prev) => prev.map((w) => w.id === existing.id ? updatedEntry : w));
+      return { entry: updatedEntry, isDuplicate: true };
+    }
+
+    const newEntry: WaitlistEntry = {
+      ...signupData,
+      id: `wl_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      dateJoined: new Date().toISOString()
+    };
+
+    setWaitlistEntries((prev) => [newEntry, ...prev]);
+
+    // Add activity log for admin
+    const now = new Date();
+    const formatted = `${now.toISOString().split('T')[0]} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    const log: ActivityLog = {
+      id: `act_${Date.now()}`,
+      timestamp: formatted,
+      adminName: 'Meta Ads Engine',
+      adminEmail: 'ads@mithaipop.com',
+      action: `New Waitlist Lead: ${newEntry.fullName} (${newEntry.source})`,
+      targetType: 'customer',
+      targetId: newEntry.id,
+      details: `Pop: ${newEntry.favoritePop || newEntry.preferredFlavor || 'Any'} | City: ${newEntry.city || 'N/A'} | Source: ${newEntry.source}`
+    };
+    setActivityLogs((prev) => [log, ...prev]);
+
+    const notif: AppNotification = {
+      id: `notif_${Date.now()}`,
+      target: 'admin',
+      title: '🎉 New Waitlist Signup!',
+      message: `${newEntry.fullName} joined waitlist via ${newEntry.source}`,
+      type: 'customer',
+      read: false,
+      createdAt: new Date().toISOString(),
+      timestamp: 'Just now'
+    };
+    setNotifications((prev) => [notif, ...prev]);
+
+    // Supabase insertion to waitlist_signups
+    if (supabase && isDatabaseConnected) {
+      try {
+        await supabase.from('waitlist_signups').insert([{
+          full_name: newEntry.fullName,
+          email: newEntry.email,
+          phone: newEntry.phone,
+          city: newEntry.city || null,
+          favorite_pop: newEntry.favoritePop || newEntry.preferredFlavor || null,
+          referral_source: newEntry.referralSource || null,
+          utm_source: newEntry.utmSource || null,
+          utm_medium: newEntry.utmMedium || null,
+          utm_campaign: newEntry.utmCampaign || null,
+          utm_content: newEntry.utmContent || null,
+          utm_term: newEntry.utmTerm || null,
+          fbclid: newEntry.fbclid || null,
+          consent: Boolean(newEntry.consent),
+          created_at: newEntry.dateJoined
+        }]);
+      } catch (err) {
+        // Fallback silently if table not yet configured
+      }
+    }
+
+    return { entry: newEntry, isDuplicate: false };
+  };
+
+  const deleteWaitlistEntry = (id: string) => {
+    setWaitlistEntries((prev) => prev.filter((w) => w.id !== id));
+  };
+
+  const resetStoreData = () => {
+    localStorage.removeItem('mithai_pop_orders');
+    localStorage.removeItem('mithai_pop_preorders');
+    localStorage.removeItem('mithai_pop_inventory');
+    localStorage.removeItem('mithai_pop_coupons');
+    localStorage.removeItem('mithai_pop_reviews');
+    localStorage.removeItem('mithai_pop_gift_orders');
+    localStorage.removeItem('mithai_pop_activity');
+    localStorage.removeItem('mithai_pop_support_tickets');
+    localStorage.removeItem('mithai_pop_settings');
+    localStorage.removeItem('mithai_pop_waitlist');
+    setOrders(INITIAL_ORDERS);
+    setPreOrders(INITIAL_PREORDERS);
+    setInventory(INITIAL_INVENTORY);
+    setCoupons(INITIAL_COUPONS);
+    setReviews([]);
+    setGiftOrders([]);
+    setActivityLogs(INITIAL_ACTIVITY_LOGS);
+    setSupportTickets([]);
+    setSettings(INITIAL_SETTINGS);
   };
 
   return (
@@ -1278,6 +1508,13 @@ export const StoreDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         activityLogs,
         supportTickets,
         settings,
+        storeSettings: settings,
+        updateStoreSettings: updateSettings,
+        resetStoreData,
+        waitlistEntries,
+        addWaitlistSignup,
+        deleteWaitlistEntry,
+        exportWaitlistToCSV,
         analyticsTimeframe,
         setAnalyticsTimeframe,
         getAnalytics,
@@ -1326,6 +1563,7 @@ export const StoreDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         clearNotification,
         updateSettings,
         exportDataToCSV,
+        reloadWaitlistFromDatabase,
       }}
     >
       {children}

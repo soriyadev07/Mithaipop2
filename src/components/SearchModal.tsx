@@ -6,8 +6,8 @@ import { Search, X, Star } from 'lucide-react';
 import { sounds } from '../utils/audio';
 
 export const SearchModal: React.FC = () => {
-  const { isSearchOpen, setSearchOpen, setSelectedProductModal, addToCart } = useCart();
-  const { products, getPublicProducts } = useStoreData();
+  const { isSearchOpen, setSearchOpen, setSelectedProductModal, addToCart, openWaitlistModal } = useCart();
+  const { products, getPublicProducts, settings } = useStoreData();
   const [query, setQuery] = useState('');
 
   if (!isSearchOpen) return null;
@@ -125,12 +125,17 @@ export const SearchModal: React.FC = () => {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      addToCart(product, 1);
                       handleClose();
+                      if (settings.waitlistMode) {
+                        sounds.playClick();
+                        openWaitlistModal(product.name);
+                        return;
+                      }
+                      addToCart(product, 1);
                     }}
-                    className="px-3.5 py-1.5 bg-[#F4BD38] text-[#52091B] text-xs font-black uppercase tracking-wider rounded-full hover:bg-[#FFF7E8] transition-colors"
+                    className="px-3.5 py-1.5 bg-[#F4BD38] text-[#52091B] text-xs font-black uppercase tracking-wider rounded-full hover:bg-[#FFF7E8] transition-colors cursor-pointer"
                   >
-                    Add
+                    {settings.waitlistMode ? 'Waitlist' : 'Add'}
                   </button>
                 </div>
               </div>

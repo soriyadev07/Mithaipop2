@@ -325,7 +325,32 @@ export interface StoreSettings {
   lowStockGlobalThreshold: number;
   autoApproveReviews: boolean;
   maintenanceMode: boolean;
+  waitlistMode: boolean;
 }
+
+export interface WaitlistEntry {
+  id: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  city?: string;
+  favoritePop?: string;
+  referralSource?: string;
+  source: string;
+  campaign: string;
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+  utmContent?: string;
+  utmTerm?: string;
+  fbclid?: string;
+  consent: boolean;
+  dateJoined: string;
+  preferredFlavor?: string;
+  notes?: string;
+}
+
+export const isPublicPriceVisible = (waitlistMode: boolean): boolean => !waitlistMode;
 
 export interface CityStory {
   id: string;

@@ -92,10 +92,11 @@ export const CheckoutExperience: React.FC = () => {
     triggerConfetti,
     activeOrder,
     setActiveOrder,
+    openWaitlistModal,
   } = useCart();
 
   const { currentUser, isAuthenticated, setCurrentView } = useAuth();
-  const { createOrder } = useStoreData();
+  const { createOrder, settings } = useStoreData();
 
   // Navigation steps: 'cart' | 'checkout' | 'payment' | 'confirmation'
   const [currentStep, setCurrentStep] = useState<'cart' | 'checkout' | 'payment'>('cart');
@@ -384,6 +385,58 @@ export const CheckoutExperience: React.FC = () => {
     setCheckoutOpen(false);
     setCurrentStep('cart');
   };
+
+  if (settings.waitlistMode) {
+    return (
+      <div id="checkout-prelaunch-notice" className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+        <div className="relative w-full max-w-md bg-[#2A050D] text-[#FFF7E8] border-2 border-[#F4BD38]/50 rounded-3xl p-6 sm:p-8 text-center space-y-6 shadow-2xl animate-in zoom-in-95">
+          <button
+            onClick={handleReturnToStore}
+            className="absolute top-4 right-4 p-2 text-[#FFF7E8]/60 hover:text-white bg-[#52091B] rounded-full transition-colors cursor-pointer"
+            aria-label="Close"
+          >
+            <X className="w-5 h-5" />
+          </button>
+
+          <div className="w-16 h-16 bg-[#F4BD38]/20 border border-[#F4BD38]/40 rounded-full flex items-center justify-center mx-auto text-[#F4BD38]">
+            <Sparkles className="w-8 h-8" />
+          </div>
+
+          <div className="space-y-2">
+            <span className="text-[10px] font-black uppercase tracking-widest text-[#F4BD38] bg-[#52091B] px-3.5 py-1 rounded-full border border-[#F4BD38]/30 inline-block">
+              Pre-Launch Notice
+            </span>
+            <h2 className="text-2xl font-black font-display text-[#FFF7E8] italic">
+              Online Ordering Paused
+            </h2>
+            <p className="text-sm text-[#FFF7E8]/85 leading-relaxed">
+              Online ordering is temporarily paused while we prepare our first fresh batch for launch. Join the waitlist to receive priority access and exclusive launch offers.
+            </p>
+          </div>
+
+          <div className="pt-2 flex flex-col gap-3">
+            <button
+              onClick={() => {
+                handleReturnToStore();
+                openWaitlistModal();
+              }}
+              className="w-full py-3.5 bg-[#F4BD38] hover:bg-[#FFF7E8] text-[#52091B] font-black text-xs uppercase tracking-widest rounded-full shadow-lg transition-all transform active:scale-95 flex items-center justify-center gap-2 border border-[#F4BD38] btn-shimmer-sheen cursor-pointer"
+            >
+              <Sparkles className="w-4 h-4 text-[#52091B]" />
+              <span>Join the Waitlist</span>
+            </button>
+
+            <button
+              onClick={handleReturnToStore}
+              className="text-xs text-[#FFF7E8]/70 hover:text-[#F4BD38] py-1 transition-colors cursor-pointer"
+            >
+              Back to Store
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div id="checkout-experience-container" className="fixed inset-0 z-50 overflow-y-auto bg-[#FFFDF9] text-[#171316] flex flex-col justify-between font-sans">
