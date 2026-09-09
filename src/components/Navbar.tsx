@@ -326,7 +326,7 @@ export const Navbar: React.FC = () => {
                 className="inline-flex items-center bg-[#F4BD38] text-[#52091B] px-5 py-2 rounded-full text-xs font-black uppercase tracking-widest hover:bg-[#FFF7E8] transition-all shadow-md active:scale-95 border border-[#F4BD38] btn-shimmer-sheen cursor-pointer gap-1.5"
               >
                 <Sparkles className="w-3.5 h-3.5 text-[#52091B]" />
-                <span>JOIN WAITLIST</span>
+                <span>Join the Waitlist</span>
               </button>
             ) : (
               <button

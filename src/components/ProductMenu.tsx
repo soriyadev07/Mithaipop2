@@ -6,11 +6,12 @@ import { sounds } from '../utils/audio';
 import { useCart } from '../context/CartContext';
 import { useStoreData } from '../context/StoreDataContext';
 import { ScrollReveal } from './ScrollReveal';
+import { isPublicPriceVisible } from '../types';
 
 export const ProductMenu: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState<string>('all');
-  const { addToCart } = useCart();
-  const { products, getPublicProducts } = useStoreData();
+  const { addToCart, openWaitlistModal } = useCart();
+  const { products, getPublicProducts, settings } = useStoreData();
 
   const activePops = getPublicProducts ? getPublicProducts() : products.filter(p => p.isActive !== false && !p.isArchived);
 
@@ -131,41 +132,64 @@ export const ProductMenu: React.FC = () => {
                       <p className="text-xs text-[#FFF7E8]/80 leading-relaxed font-normal">{bundle.description}</p>
 
                       <div className="pt-4 border-t border-[#F2C76E]/20 flex items-center justify-between">
-                        <div>
-                          <span className="text-2xl font-black text-[#F2C76E] font-display">₹{bundle.price}</span>
-                          <span className="text-xs text-[#FFF7E8]/50 line-through ml-2">₹{bundle.originalPrice}</span>
-                        </div>
-                        <button
-                          onClick={() => {
-                            const syntheticProduct = {
-                              id: bundle.id,
-                              name: bundle.name,
-                              flavorCombination: bundle.tagline,
-                              tagline: bundle.tagline,
-                              description: bundle.description,
-                              cityInspiration: 'All India Collector Set',
-                              price: bundle.price,
-                              originalPrice: bundle.originalPrice,
-                              rating: 5.0,
-                              reviewCount: 180,
-                              image: bundle.image,
-                              accentColor: '#F2C76E',
-                              bgColor: '#52091B',
-                              badge: bundle.badge,
-                              ingredients: ['All Signature Flavours Included', 'Upcycling Seed Starter', 'Brass Drainage Coaster'],
-                              pairingNotes: 'The complete Mithai Pop tasting flight.',
-                              temperature: 'Deep Chilled',
-                              shelfLife: '14 Days Refrigerated',
-                              canArtworkDescription: 'Collector Gold Box with 4/6 City Editions',
-                              nutrition: { calories: 1200, protein: '28g', carbs: '140g', fat: '52g' },
-                              tags: ['Bundle', 'Gift Box']
-                            };
-                            addToCart(syntheticProduct, 1, true);
-                          }}
-                          className="px-6 py-3 bg-[#F4BD38] hover:bg-[#FFF7E8] text-[#52091B] font-bold text-xs uppercase tracking-widest rounded-full shadow-lg transition-all transform active:scale-95 border border-[#52091B] btn-shimmer-sheen"
-                        >
-                          Claim Vault Box
-                        </button>
+                        {isPublicPriceVisible(settings.waitlistMode) ? (
+                          <div>
+                            <span className="text-2xl font-black text-[#F2C76E] font-display">₹{bundle.price}</span>
+                            <span className="text-xs text-[#FFF7E8]/50 line-through ml-2">₹{bundle.originalPrice}</span>
+                          </div>
+                        ) : (
+                          <div>
+                            <span className="text-xs font-bold text-[#F4BD38] uppercase tracking-wider flex items-center gap-1">
+                              <Sparkles className="w-3.5 h-3.5 text-[#F4BD38]" /> Collector Box
+                            </span>
+                            <span className="text-[10px] font-medium uppercase tracking-wider text-[#FFF7E8]/60 block">Pre-Launch Edition</span>
+                          </div>
+                        )}
+
+                        {settings.waitlistMode ? (
+                          <button
+                            onClick={() => {
+                              sounds.playClick();
+                              openWaitlistModal(bundle.name);
+                            }}
+                            className="px-6 py-3 bg-[#F4BD38] hover:bg-[#FFF7E8] text-[#52091B] font-bold text-xs uppercase tracking-widest rounded-full shadow-lg transition-all transform active:scale-95 border border-[#52091B] btn-shimmer-sheen flex items-center gap-2 cursor-pointer"
+                          >
+                            <Sparkles className="w-4 h-4 text-[#52091B]" />
+                            <span>Join the Waitlist</span>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              const syntheticProduct = {
+                                id: bundle.id,
+                                name: bundle.name,
+                                flavorCombination: bundle.tagline,
+                                tagline: bundle.tagline,
+                                description: bundle.description,
+                                cityInspiration: 'All India Collector Set',
+                                price: bundle.price,
+                                originalPrice: bundle.originalPrice,
+                                rating: 5.0,
+                                reviewCount: 180,
+                                image: bundle.image,
+                                accentColor: '#F2C76E',
+                                bgColor: '#52091B',
+                                badge: bundle.badge,
+                                ingredients: ['All Signature Flavours Included', 'Upcycling Seed Starter', 'Brass Drainage Coaster'],
+                                pairingNotes: 'The complete Mithai Pop tasting flight.',
+                                temperature: 'Deep Chilled',
+                                shelfLife: '14 Days Refrigerated',
+                                canArtworkDescription: 'Collector Gold Box with 4/6 City Editions',
+                                nutrition: { calories: 1200, protein: '28g', carbs: '140g', fat: '52g' },
+                                tags: ['Bundle', 'Gift Box']
+                              };
+                              addToCart(syntheticProduct, 1, true);
+                            }}
+                            className="px-6 py-3 bg-[#F4BD38] hover:bg-[#FFF7E8] text-[#52091B] font-bold text-xs uppercase tracking-widest rounded-full shadow-lg transition-all transform active:scale-95 border border-[#52091B] btn-shimmer-sheen"
+                          >
+                            Claim Vault Box
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

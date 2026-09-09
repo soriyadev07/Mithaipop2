@@ -35,14 +35,39 @@ import { CustomerAccount } from './components/account/CustomerAccount';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { tapestryRedBg } from './data/products';
 import { captureUrlAttribution } from './utils/attribution';
+import { initMetaPixel, trackMetaPageView } from './utils/metaPixel';
 
 const AppContent: React.FC = () => {
   const { currentView } = useAuth();
+  const prevViewRef = React.useRef<string | null>(null);
 
-  // Capture ad attribution parameters on mount (Meta Ads fbclid, UTMs)
+  // Capture ad attribution parameters and initialize Meta Pixel on mount
   useEffect(() => {
     captureUrlAttribution();
+    initMetaPixel();
   }, []);
+
+  // Track Meta Pixel PageView on React SPA view/route transitions
+  useEffect(() => {
+    if (prevViewRef.current === null) {
+      // First render: base code in index.html already tracked initial PageView
+      prevViewRef.current = currentView;
+      return;
+    }
+
+    if (prevViewRef.current !== currentView) {
+      prevViewRef.current = currentView;
+      const viewTitle = currentView === 'shop'
+        ? 'मिठाई POP — Fusion Indian Desserts in a Soda Can'
+        : `Mithai POP — ${currentView.charAt(0).toUpperCase() + currentView.slice(1)}`;
+      const viewPath = currentView === 'shop' ? '/' : `/${currentView}`;
+
+      trackMetaPageView({
+        page_title: viewTitle,
+        page_path: viewPath,
+      });
+    }
+  }, [currentView]);
 
   // If user is navigating to Login view
   if (currentView === 'login') {

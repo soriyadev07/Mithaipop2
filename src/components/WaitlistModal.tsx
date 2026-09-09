@@ -6,6 +6,7 @@ import { useStoreData } from '../context/StoreDataContext';
 import { getStoredAttribution } from '../utils/attribution';
 import { sounds } from '../utils/audio';
 import confetti from 'canvas-confetti';
+import { trackMetaLead } from '../utils/metaPixel';
 
 export const WaitlistModal: React.FC = () => {
   const { waitlistOpen, closeWaitlistModal, waitlistPreferredFlavor } = useCart();
@@ -101,6 +102,19 @@ export const WaitlistModal: React.FC = () => {
 
       setIsDuplicate(Boolean(result?.isDuplicate));
       setIsSuccess(true);
+
+      // Track Meta Pixel Lead event ONLY on successful waitlist form submission
+      const associatedProduct = (waitlistPreferredFlavor && waitlistPreferredFlavor.trim() !== '')
+        ? waitlistPreferredFlavor.trim()
+        : (favoritePop && favoritePop !== 'All Flavours / Surprise Me' ? favoritePop.trim() : undefined);
+
+      trackMetaLead({
+        content_name: associatedProduct ? `${associatedProduct} - Waitlist` : 'Mithai Pop Waitlist Registration',
+        product_name: associatedProduct || undefined,
+        content_category: 'Waitlist',
+        value: 0,
+        currency: 'INR',
+      });
     } catch (err) {
       console.error('Waitlist submission failed:', err);
     } finally {

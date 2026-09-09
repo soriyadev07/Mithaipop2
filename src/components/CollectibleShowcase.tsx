@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Trophy, ShoppingBag, Eye, Sparkles } from 'lucide-react';
 import { PRODUCTS } from '../data/products';
+import { isPublicPriceVisible } from '../types';
 import { useCart } from '../context/CartContext';
 import { useStoreData } from '../context/StoreDataContext';
 import { ScrollReveal } from './ScrollReveal';
@@ -78,15 +79,24 @@ export const CollectibleShowcase: React.FC = () => {
                     </div>
 
                     <div className="pt-3.5 border-t border-[#F2C76E]/20 flex items-center justify-between">
-                      <div>
-                        <span className="text-xl font-black text-[#F2C76E] font-display">₹{product.price}</span>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#FFF7E8]/60 block">Art Can</span>
-                      </div>
+                      {isPublicPriceVisible(settings.waitlistMode) ? (
+                        <div>
+                          <span className="text-xl font-black text-[#F2C76E] font-display">₹{product.price}</span>
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-[#FFF7E8]/60 block">Art Can</span>
+                        </div>
+                      ) : (
+                        <div>
+                          <span className="text-xs font-bold text-[#F4BD38] uppercase tracking-wider flex items-center gap-1">
+                            <Sparkles className="w-3 h-3 text-[#F4BD38]" /> Drop 01
+                          </span>
+                          <span className="text-[10px] font-medium uppercase tracking-wider text-[#FFF7E8]/60 block">Art Can</span>
+                        </div>
+                      )}
 
                       <div className="flex gap-2">
                         <button
                           onClick={() => setSelectedProductModal(product)}
-                          className="p-2.5 bg-[#52091B] hover:bg-[#F2C76E]/20 text-[#FFF7E8] border border-[#F2C76E]/30 rounded-full transition-colors transform active:scale-95"
+                          className="p-2.5 bg-[#52091B] hover:bg-[#F2C76E]/20 text-[#FFF7E8] border border-[#F2C76E]/30 rounded-full transition-colors transform active:scale-95 cursor-pointer"
                           title="View Artwork Details"
                         >
                           <Eye className="w-4 h-4" />
@@ -101,7 +111,7 @@ export const CollectibleShowcase: React.FC = () => {
                             className="px-4 py-2 bg-[#F4BD38] hover:bg-[#FFF7E8] text-[#52091B] font-bold text-xs uppercase tracking-widest rounded-full shadow-md transition-all transform active:scale-95 flex items-center gap-1.5 border border-[#52091B] btn-shimmer-sheen cursor-pointer"
                           >
                             <Sparkles className="w-3.5 h-3.5 text-[#52091B]" />
-                            <span>Join Waitlist</span>
+                            <span>Join the Waitlist</span>
                           </button>
                         ) : (
                           <button

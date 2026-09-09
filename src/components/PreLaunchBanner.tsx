@@ -57,7 +57,7 @@ export const PreLaunchBanner: React.FC = () => {
           onClick={handleJoinClick}
           className="inline-flex items-center gap-1 text-[#F4BD38] font-bold underline underline-offset-2 hover:text-[#FFF7E8] transition-colors"
         >
-          <span>Join Now</span>
+          <span>Join the Waitlist</span>
           <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
         </button>
       </div>

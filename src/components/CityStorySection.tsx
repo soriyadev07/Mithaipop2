@@ -102,7 +102,7 @@ export const CityStorySection: React.FC = () => {
                         className="px-4 py-2 bg-[#F4BD38] hover:bg-[#FFF7E8] text-[#52091B] font-bold text-xs uppercase tracking-widest rounded-full shadow-sm transition-all transform active:scale-95 border border-[#52091B] btn-shimmer-sheen cursor-pointer flex items-center gap-1.5"
                       >
                         <Sparkles className="w-3.5 h-3.5 text-[#52091B]" />
-                        <span>Join Waitlist</span>
+                        <span>Join the Waitlist</span>
                       </button>
                     ) : (
                       <button

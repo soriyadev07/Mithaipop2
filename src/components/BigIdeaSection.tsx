@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Sparkles, Plus, Zap } from 'lucide-react';
 import { sounds } from '../utils/audio';
 import { useCart } from '../context/CartContext';
+import { useStoreData } from '../context/StoreDataContext';
+import { isPublicPriceVisible } from '../types';
 import { PRODUCTS } from '../data/products';
 import { ScrollReveal } from './ScrollReveal';
 
@@ -70,7 +72,8 @@ const COMBOS: FusionCombo[] = [
 export const BigIdeaSection: React.FC = () => {
   const [selectedCombo, setSelectedCombo] = useState<string>('combo-1');
   const [isColliding, setIsColliding] = useState(false);
-  const { addToCart, setSelectedProductModal } = useCart();
+  const { addToCart, setSelectedProductModal, openWaitlistModal } = useCart();
+  const { settings } = useStoreData();
 
   const current = COMBOS.find((c) => c.id === selectedCombo) || COMBOS[0];
   const matchingProduct = PRODUCTS.find((p) => p.id === current.result.popId);
@@ -176,7 +179,13 @@ export const BigIdeaSection: React.FC = () => {
                   <span className="text-[10px] font-bold uppercase tracking-widest text-[#7A0F29] bg-[#F58FA3]/20 border border-[#F58FA3] px-2.5 py-0.5 rounded-full">
                     {current.result.badge}
                   </span>
-                  <span className="text-xs font-bold text-[#7A0F29] font-display">₹249 / Can</span>
+                  {isPublicPriceVisible(settings.waitlistMode) ? (
+                    <span className="text-xs font-bold text-[#7A0F29] font-display">₹249 / Can</span>
+                  ) : (
+                    <span className="text-[11px] font-bold text-[#7A0F29] uppercase tracking-wider flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-[#7A0F29]" /> Drop 01
+                    </span>
+                  )}
                 </div>
 
                 <div>
@@ -192,17 +201,30 @@ export const BigIdeaSection: React.FC = () => {
 
                 <div className="flex items-center gap-2 pt-1">
                   {matchingProduct && (
-                    <button
-                      onClick={() => addToCart(matchingProduct, 1)}
-                      className="flex-1 py-2.5 bg-[#7A0F29] hover:bg-[#52091B] text-[#FFF7E8] font-bold text-xs uppercase tracking-widest rounded-full shadow-md text-center transition-all transform active:scale-95 btn-shimmer-sheen"
-                    >
-                      Add to Cart
-                    </button>
+                    settings.waitlistMode ? (
+                      <button
+                        onClick={() => {
+                          sounds.playClick();
+                          openWaitlistModal(matchingProduct.name);
+                        }}
+                        className="flex-1 py-2.5 bg-[#7A0F29] hover:bg-[#52091B] text-[#FFF7E8] font-bold text-xs uppercase tracking-widest rounded-full shadow-md text-center transition-all transform active:scale-95 btn-shimmer-sheen flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-[#F2C76E]" />
+                        <span>Join the Waitlist</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => addToCart(matchingProduct, 1)}
+                        className="flex-1 py-2.5 bg-[#7A0F29] hover:bg-[#52091B] text-[#FFF7E8] font-bold text-xs uppercase tracking-widest rounded-full shadow-md text-center transition-all transform active:scale-95 btn-shimmer-sheen cursor-pointer"
+                      >
+                        Add to Cart
+                      </button>
+                    )
                   )}
                   {matchingProduct && (
                     <button
                       onClick={() => setSelectedProductModal(matchingProduct)}
-                      className="p-2.5 bg-[#FFF7E8] hover:bg-[#7A0F29] hover:text-[#FFF7E8] text-[#7A0F29] border border-[#7A0F29]/20 rounded-full transition-colors transform active:scale-95"
+                      className="p-2.5 bg-[#FFF7E8] hover:bg-[#7A0F29] hover:text-[#FFF7E8] text-[#7A0F29] border border-[#7A0F29]/20 rounded-full transition-colors transform active:scale-95 cursor-pointer"
                       title="View Flavour Breakdown"
                     >
                       <Sparkles className="w-4 h-4" />

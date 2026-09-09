@@ -1,16 +1,37 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useCart } from '../context/CartContext';
 import { useStoreData } from '../context/StoreDataContext';
 import { isPublicPriceVisible } from '../types';
 import { X, Star, Sparkles, Plus, Minus, ShoppingBag, MapPin, Heart, Thermometer, Calendar } from 'lucide-react';
 import { sounds } from '../utils/audio';
 import { tapestryGoldBg } from '../data/products';
+import { trackMetaViewContent } from '../utils/metaPixel';
 
 export const ProductDetailModal: React.FC = () => {
   const { selectedProductModal, setSelectedProductModal, addToCart, toggleWishlist, wishlist, openWaitlistModal } = useCart();
   const { settings } = useStoreData();
   const [quantity, setQuantity] = useState(1);
   const [isGift, setIsGift] = useState(false);
+  const lastTrackedProductIdRef = useRef<string | null>(null);
+
+  // Track Meta Pixel ViewContent event whenever a user opens/views a specific product
+  useEffect(() => {
+    if (selectedProductModal) {
+      if (lastTrackedProductIdRef.current !== selectedProductModal.id) {
+        lastTrackedProductIdRef.current = selectedProductModal.id;
+        trackMetaViewContent({
+          content_name: selectedProductModal.name,
+          content_category: selectedProductModal.cityInspiration || 'Fusion Indian Desserts',
+          content_ids: [selectedProductModal.id],
+          content_type: 'product',
+          value: selectedProductModal.price,
+          currency: 'INR',
+        });
+      }
+    } else {
+      lastTrackedProductIdRef.current = null;
+    }
+  }, [selectedProductModal]);
 
   if (!selectedProductModal) return null;
 

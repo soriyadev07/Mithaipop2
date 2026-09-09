@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { useCart } from '../context/CartContext';
 import { useStoreData } from '../context/StoreDataContext';
 import { tapestryGoldBg } from '../data/products';
-import { Search, X, Star } from 'lucide-react';
+import { Search, X, Star, Sparkles } from 'lucide-react';
 import { sounds } from '../utils/audio';
+import { isPublicPriceVisible } from '../types';
 
 export const SearchModal: React.FC = () => {
   const { isSearchOpen, setSearchOpen, setSelectedProductModal, addToCart, openWaitlistModal } = useCart();
@@ -121,7 +122,9 @@ export const SearchModal: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-2.5 shrink-0">
-                  <span className="text-sm font-black text-[#F4BD38] font-display">₹{product.price}</span>
+                  {isPublicPriceVisible(settings.waitlistMode) && (
+                    <span className="text-sm font-black text-[#F4BD38] font-display">₹{product.price}</span>
+                  )}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -133,9 +136,16 @@ export const SearchModal: React.FC = () => {
                       }
                       addToCart(product, 1);
                     }}
-                    className="px-3.5 py-1.5 bg-[#F4BD38] text-[#52091B] text-xs font-black uppercase tracking-wider rounded-full hover:bg-[#FFF7E8] transition-colors cursor-pointer"
+                    className="px-3.5 py-1.5 bg-[#F4BD38] text-[#52091B] text-xs font-black uppercase tracking-wider rounded-full hover:bg-[#FFF7E8] transition-colors cursor-pointer flex items-center gap-1"
                   >
-                    {settings.waitlistMode ? 'Waitlist' : 'Add'}
+                    {settings.waitlistMode ? (
+                      <>
+                        <Sparkles className="w-3 h-3 text-[#52091B]" />
+                        <span>Join the Waitlist</span>
+                      </>
+                    ) : (
+                      'Add'
+                    )}
                   </button>
                 </div>
               </div>

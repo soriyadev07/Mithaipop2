@@ -296,6 +296,10 @@ export const CheckoutExperience: React.FC = () => {
 
   // Step Transitions
   const handleProceedToPayment = () => {
+    if (settings.waitlistMode) {
+      openWaitlistModal();
+      return;
+    }
     sounds.playClick();
     if (currentStep === 'cart') {
       setCurrentStep('checkout');
@@ -312,6 +316,10 @@ export const CheckoutExperience: React.FC = () => {
 
   // Complete Order
   const handleCompleteOrder = () => {
+    if (settings.waitlistMode) {
+      openWaitlistModal();
+      return;
+    }
     sounds.playClick();
     setIsProcessingPayment(true);
 
