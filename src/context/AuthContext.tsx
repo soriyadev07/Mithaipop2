@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, UserRole, Address } from '../types';
 import { INITIAL_USERS } from '../data/mockStoreData';
 import { sounds } from '../utils/audio';
+import { navigateTo } from '../utils/navigation';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -37,6 +38,98 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+/**
+ * Synchronously determine the initial route and view state based on URL and user session.
+ * Enforces:
+ *  - /admin while unauthenticated -> redirects to /admin/login
+ *  - /admin while authenticated as admin -> stays on /admin (Admin Dashboard)
+ *  - /admin/login while authenticated as admin -> redirects to /admin
+ *  - /admin/login while unauthenticated -> stays on /admin/login
+ */
+const getInitialRouteState = (user: User | null): {
+  view: 'shop' | 'login' | 'account' | 'admin';
+  authMode: 'login' | 'register' | 'forgot';
+  adminTab: string;
+  accountTab: string;
+} => {
+  const path = typeof window !== 'undefined' ? window.location.pathname.toLowerCase() : '/';
+  const hash = typeof window !== 'undefined' ? window.location.hash.toLowerCase() : '';
+  const isAuthAdmin = !!(user && user.role !== 'CUSTOMER');
+
+  // Case: Admin Login path (/admin/login or #admin/login)
+  if (path === '/admin/login' || path.startsWith('/admin/login') || hash.startsWith('#admin/login')) {
+    if (isAuthAdmin) {
+      if (typeof window !== 'undefined' && window.location.pathname !== '/admin') {
+        window.history.replaceState(null, '', '/admin');
+      }
+      return { view: 'admin', authMode: 'login', adminTab: 'dashboard', accountTab: 'overview' };
+    }
+    if (typeof window !== 'undefined' && (window.location.pathname !== '/admin/login' || window.location.hash.includes('admin/login'))) {
+      window.history.replaceState(null, '', '/admin/login');
+    }
+    return { view: 'login', authMode: 'login', adminTab: 'dashboard', accountTab: 'overview' };
+  }
+
+  // Case: Admin Dashboard path (/admin or #admin)
+  if (path === '/admin' || path.startsWith('/admin') || hash === '#admin' || hash.startsWith('#admin/')) {
+    if (isAuthAdmin) {
+      let subTab = 'dashboard';
+      if (path.startsWith('/admin/') && path !== '/admin/login') {
+        subTab = path.replace('/admin/', '').split('/')[0] || 'dashboard';
+      } else if (hash.startsWith('#admin/')) {
+        subTab = hash.replace('#admin/', '').split('/')[0] || 'dashboard';
+      }
+      if (typeof window !== 'undefined' && window.location.hash) {
+        window.history.replaceState(null, '', `/admin${subTab !== 'dashboard' ? '/' + subTab : ''}`);
+      }
+      return { view: 'admin', authMode: 'login', adminTab: subTab, accountTab: 'overview' };
+    } else {
+      // Unauthenticated user attempting /admin -> redirect to /admin/login
+      if (typeof window !== 'undefined') {
+        window.history.replaceState(null, '', '/admin/login');
+      }
+      return { view: 'login', authMode: 'login', adminTab: 'dashboard', accountTab: 'overview' };
+    }
+  }
+
+  // Case: Customer Login / Signup
+  if (path === '/login' || path.startsWith('/login') || path === '/signup' || hash.startsWith('#login') || hash.startsWith('#signup') || hash.startsWith('#auth')) {
+    if (isAuthAdmin) {
+      if (typeof window !== 'undefined') {
+        window.history.replaceState(null, '', '/admin');
+      }
+      return { view: 'admin', authMode: 'login', adminTab: 'dashboard', accountTab: 'overview' };
+    }
+    if (user) {
+      return { view: 'account', authMode: 'login', adminTab: 'dashboard', accountTab: 'overview' };
+    }
+    const isRegister = path === '/signup' || hash.startsWith('#signup');
+    return { view: 'login', authMode: isRegister ? 'register' : 'login', adminTab: 'dashboard', accountTab: 'overview' };
+  }
+
+  // Case: Customer Account
+  if (path === '/account' || hash.startsWith('#account') || hash.startsWith('#orders') || hash.startsWith('#preorders')) {
+    if (isAuthAdmin) {
+      if (typeof window !== 'undefined') {
+        window.history.replaceState(null, '', '/admin');
+      }
+      return { view: 'admin', authMode: 'login', adminTab: 'dashboard', accountTab: 'overview' };
+    }
+    if (!user) {
+      if (typeof window !== 'undefined') {
+        window.history.replaceState(null, '', '/login');
+      }
+      return { view: 'login', authMode: 'login', adminTab: 'dashboard', accountTab: 'overview' };
+    }
+    let tab = 'overview';
+    if (hash.startsWith('#orders')) tab = 'orders';
+    return { view: 'account', authMode: 'login', adminTab: 'dashboard', accountTab: tab };
+  }
+
+  // Default: Public storefront (/)
+  return { view: 'shop', authMode: 'login', adminTab: 'dashboard', accountTab: 'overview' };
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Stored users
   const [users, setUsers] = useState<User[]>(() => {
@@ -68,15 +161,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     currentUser.role === 'SUPPORT_ADMIN'
   ));
 
+  // Compute synchronous initial route
+  const initialRoute = getInitialRouteState(currentUser);
+
   // Views & Routing: 'shop' | 'login' | 'account' | 'admin'
-  const [currentView, setCurrentViewInternal] = useState<'shop' | 'login' | 'account' | 'admin'>('shop');
-  const [activeAccountTab, setActiveAccountTab] = useState<string>('overview');
-  const [activeAdminTab, setActiveAdminTab] = useState<string>('dashboard');
+  const [currentView, setCurrentViewInternal] = useState<'shop' | 'login' | 'account' | 'admin'>(initialRoute.view);
+  const [activeAccountTab, setActiveAccountTab] = useState<string>(initialRoute.accountTab);
+  const [activeAdminTab, setActiveAdminTab] = useState<string>(initialRoute.adminTab);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
   // Auth modal view mode: 'login' | 'register' | 'forgot'
   const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [authViewMode, setAuthViewMode] = useState<'login' | 'register' | 'forgot'>('login');
+  const [authViewMode, setAuthViewMode] = useState<'login' | 'register' | 'forgot'>(initialRoute.authMode);
 
   // Sync users to localStorage
   useEffect(() => {
@@ -100,45 +196,55 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [currentUser]);
 
-  // Sync hash and pathname routing with views
+  // Sync route and pathname routing with views
   useEffect(() => {
-    const handleHashChange = () => {
+    const handleRouteSync = () => {
       const hash = window.location.hash.toLowerCase();
       const path = window.location.pathname.toLowerCase();
+      const isAuthAdmin = !!(currentUser && currentUser.role !== 'CUSTOMER');
 
+      // 1. Admin Login: /admin/login or #admin/login
       if (path === '/admin/login' || path.startsWith('/admin/login') || hash.startsWith('#admin/login')) {
-        if (currentUser && currentUser.role !== 'CUSTOMER') {
+        if (isAuthAdmin) {
+          // Authenticated admin should be on admin dashboard
+          navigateTo('/admin', true);
           setCurrentViewInternal('admin');
-          window.location.hash = '#admin';
         } else {
           setCurrentViewInternal('login');
+          setAuthViewMode('login');
         }
-      } else if (path === '/admin' || path.startsWith('/admin') || hash.startsWith('#admin')) {
-        if (!currentUser || currentUser.role === 'CUSTOMER') {
-          sounds.playError();
+        return;
+      }
+
+      // 2. Admin Dashboard: /admin or #admin
+      if (path === '/admin' || path.startsWith('/admin') || hash === '#admin' || hash.startsWith('#admin/')) {
+        if (!isAuthAdmin) {
+          // Unauthenticated or customer visiting /admin -> redirect directly to /admin/login
+          navigateTo('/admin/login', true);
           setCurrentViewInternal('login');
-          window.location.hash = '#admin/login';
+          setAuthViewMode('login');
         } else {
           setCurrentViewInternal('admin');
-          // Support /admin/orders or #admin-orders or #admin/orders
           let sub = '';
-          if (hash.startsWith('#admin-')) sub = hash.replace('#admin-', '');
-          else if (hash.startsWith('#admin/')) sub = hash.replace('#admin/', '');
-          else if (path.startsWith('/admin/')) sub = path.replace('/admin/', '');
+          if (hash.startsWith('#admin/')) sub = hash.replace('#admin/', '').split('/')[0];
+          else if (hash.startsWith('#admin-')) sub = hash.replace('#admin-', '');
+          else if (path.startsWith('/admin/')) sub = path.replace('/admin/', '').split('/')[0];
 
           if (sub && sub !== 'login') {
             setActiveAdminTab(sub);
           }
         }
-      } else if (path === '/login' || path.startsWith('/login') || path === '/signup' || hash.startsWith('#login') || hash.startsWith('#signup') || hash.startsWith('#auth')) {
-        if (currentUser) {
-          if (currentUser.role === 'CUSTOMER') {
-            setCurrentViewInternal('account');
-            window.location.hash = '#account';
-          } else {
-            setCurrentViewInternal('admin');
-            window.location.hash = '#admin';
-          }
+        return;
+      }
+
+      // 3. Customer Login / Register: /login, /signup, #login, #signup
+      if (path === '/login' || path.startsWith('/login') || path === '/signup' || hash.startsWith('#login') || hash.startsWith('#signup') || hash.startsWith('#auth')) {
+        if (isAuthAdmin) {
+          navigateTo('/admin', true);
+          setCurrentViewInternal('admin');
+        } else if (currentUser) {
+          navigateTo('/account', true);
+          setCurrentViewInternal('account');
         } else {
           setCurrentViewInternal('login');
           if (hash.startsWith('#signup') || path === '/signup') {
@@ -147,14 +253,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setAuthViewMode('login');
           }
         }
-      } else if (path === '/account' || hash.startsWith('#account') || hash.startsWith('#orders') || hash.startsWith('#preorders')) {
-        if (!currentUser) {
-          setCurrentViewInternal('login');
-          window.location.hash = '#login';
-        } else if (currentUser.role !== 'CUSTOMER') {
-          // Admin redirected to admin
+        return;
+      }
+
+      // 4. Customer Account: /account or #account
+      if (path === '/account' || hash.startsWith('#account') || hash.startsWith('#orders') || hash.startsWith('#preorders')) {
+        if (isAuthAdmin) {
+          navigateTo('/admin', true);
           setCurrentViewInternal('admin');
-          window.location.hash = '#admin';
+        } else if (!currentUser) {
+          navigateTo('/login', true);
+          setCurrentViewInternal('login');
         } else {
           setCurrentViewInternal('account');
           if (hash.startsWith('#orders/')) {
@@ -165,55 +274,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setActiveAccountTab(hash.replace('#account-', ''));
           }
         }
-      } else if (hash === '#shop' || hash === '#menu' || hash === '#hero' || hash === '' || hash.startsWith('#build-your-pop') || hash.startsWith('#reviews') || hash.startsWith('#story') || hash.startsWith('#cities')) {
+        return;
+      }
+
+      // 5. Storefront & Section hashes
+      if (path === '/' || hash === '#shop' || hash === '#menu' || hash === '#hero' || hash === '' || hash.startsWith('#build-your-pop') || hash.startsWith('#reviews') || hash.startsWith('#story') || hash.startsWith('#cities')) {
         setCurrentViewInternal('shop');
       }
     };
 
-    window.addEventListener('hashchange', handleHashChange);
-    window.addEventListener('popstate', handleHashChange);
-    handleHashChange(); // Run on mount
+    window.addEventListener('hashchange', handleRouteSync);
+    window.addEventListener('popstate', handleRouteSync);
+    handleRouteSync(); // Run on mount
     return () => {
-      window.removeEventListener('hashchange', handleHashChange);
-      window.removeEventListener('popstate', handleHashChange);
+      window.removeEventListener('hashchange', handleRouteSync);
+      window.removeEventListener('popstate', handleRouteSync);
     };
   }, [currentUser]);
 
-  // Setter with hash synchronization
+  // Setter with URL and view synchronization
   const setCurrentView = (view: 'shop' | 'login' | 'account' | 'admin') => {
     sounds.playClick();
     if (view === 'admin') {
       if (!currentUser || currentUser.role === 'CUSTOMER') {
         setCurrentViewInternal('login');
-        window.location.hash = '#admin/login';
+        navigateTo('/admin/login');
         return;
       }
       setCurrentViewInternal('admin');
-      window.location.hash = '#admin';
+      navigateTo('/admin');
     } else if (view === 'account') {
       if (!currentUser) {
         setCurrentViewInternal('login');
-        window.location.hash = '#login';
+        navigateTo('/login');
         return;
       }
       if (currentUser.role !== 'CUSTOMER') {
         setCurrentViewInternal('admin');
-        window.location.hash = '#admin';
+        navigateTo('/admin');
         return;
       }
       setCurrentViewInternal('account');
-      window.location.hash = '#account';
+      navigateTo('/account');
     } else if (view === 'login') {
       setCurrentViewInternal('login');
-      // If previous hash was admin/login keep it, else default to customer #login
-      if (window.location.hash.toLowerCase().startsWith('#admin/login')) {
-        window.location.hash = '#admin/login';
+      if (window.location.pathname.startsWith('/admin') || window.location.hash.includes('admin')) {
+        navigateTo('/admin/login');
       } else {
-        window.location.hash = '#login';
+        navigateTo('/login');
       }
     } else {
       setCurrentViewInternal('shop');
-      window.location.hash = '#';
+      navigateTo('/');
     }
   };
 
@@ -252,7 +364,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       sounds.playCelebration();
       setCurrentViewInternal('admin');
-      window.location.hash = '#admin';
+      // Direct redirect to /admin (never /, /login, or /account)
+      navigateTo('/admin', true);
 
       return { success: true, user: adminUser };
     }
@@ -447,10 +560,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (wasAdmin) {
       setCurrentViewInternal('login');
-      window.location.hash = '#admin/login';
+      navigateTo('/admin/login', true);
     } else {
       setCurrentViewInternal('shop');
-      window.location.hash = '#';
+      navigateTo('/', true);
     }
   };
 

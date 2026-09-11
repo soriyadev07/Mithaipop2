@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { BrandLogo } from '../BrandLogo';
 import { sounds } from '../../utils/audio';
+import { navigateTo } from '../../utils/navigation';
 import { 
   Lock, 
   Mail, 
@@ -272,7 +273,7 @@ export const LoginPage: React.FC = () => {
           onClick={() => {
             sounds.playClick();
             setCurrentView('shop');
-            window.location.hash = '#';
+            navigateTo('/', true);
           }}
           className="inline-flex items-center gap-2 text-xs font-semibold text-stone-600 hover:text-[#52091B] px-3.5 py-2 rounded-xl bg-white border border-stone-200 shadow-xs transition-all hover:-translate-x-0.5 cursor-pointer"
         >

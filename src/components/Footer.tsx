@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
-import { Sparkles, Instagram, Twitter, MessageCircle, MapPin, Send, Check } from 'lucide-react';
+import { Sparkles, Instagram, Twitter, MessageCircle, MapPin, Send, Check, ShieldCheck } from 'lucide-react';
 import { sounds } from '../utils/audio';
 import { BrandLogo } from './BrandLogo';
 import { tapestryRedBg } from '../data/products';
+import { useAuth } from '../context/AuthContext';
+import { navigateTo } from '../utils/navigation';
 
 export const Footer: React.FC = () => {
+  const { isAdmin, setCurrentView } = useAuth();
   const [email, setEmail] = useState('');
   const [subscribed, setSubscribed] = useState(false);
 
@@ -151,6 +154,26 @@ export const Footer: React.FC = () => {
                   Reviews
                 </button>
               </li>
+              <li>
+                <a
+                  href="/admin"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    sounds.playClick();
+                    if (isAdmin) {
+                      setCurrentView('admin');
+                      navigateTo('/admin');
+                    } else {
+                      setCurrentView('login');
+                      navigateTo('/admin/login');
+                    }
+                  }}
+                  className="hover:text-[#F2C76E] transition-colors flex items-center gap-1.5 pt-1 text-stone-400 hover:text-[#F2C76E]"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-[#F2C76E]" />
+                  <span>Admin Portal</span>
+                </a>
+              </li>
             </ul>
           </div>
 
@@ -215,8 +238,28 @@ export const Footer: React.FC = () => {
         {/* Bottom copyright line with Editorial tracking */}
         <div className="mt-14 pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between text-[10px] font-bold uppercase tracking-[0.25em] text-[#FFF7E8]/50 gap-4">
           <p>© {new Date().getFullYear()} मिठाई POP Inc. All Rights Reserved.</p>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <span>Crafted with 100% Desi Ghee & Pure Curiosity in India 🇮🇳</span>
+            <span className="text-white/20">•</span>
+            <a
+              href="/admin"
+              onClick={(e) => {
+                e.preventDefault();
+                sounds.playClick();
+                if (isAdmin) {
+                  setCurrentView('admin');
+                  navigateTo('/admin');
+                } else {
+                  setCurrentView('login');
+                  navigateTo('/admin/login');
+                }
+              }}
+              className="text-[#FFF7E8]/40 hover:text-[#F2C76E] transition-colors flex items-center gap-1 cursor-pointer normal-case text-[11px]"
+              title="Admin Portal"
+            >
+              <ShieldCheck className="w-3 h-3 text-[#F2C76E]" />
+              <span>Admin</span>
+            </a>
           </div>
         </div>
       </div>

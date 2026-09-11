@@ -17,9 +17,11 @@ import {
   Gift,
   Bell,
   LogOut,
-  ChevronDown
+  ChevronDown,
+  ShieldCheck
 } from 'lucide-react';
 import { sounds } from '../utils/audio';
+import { navigateTo } from '../utils/navigation';
 
 export const Navbar: React.FC = () => {
   const { totalItems, openCart, setSearchOpen, isMuted, toggleAudioMute, openWaitlistModal } = useCart();
@@ -27,6 +29,7 @@ export const Navbar: React.FC = () => {
   const { 
     currentUser, 
     isAuthenticated, 
+    isAdmin,
     currentView, 
     setCurrentView, 
     setActiveAccountTab, 
@@ -101,7 +104,7 @@ export const Navbar: React.FC = () => {
     sounds.playClick();
     if (!isAuthenticated) {
       setCurrentView('login');
-      window.location.hash = '#login';
+      navigateTo('/login');
       setAccountDropdownOpen(false);
       setMobileMenuOpen(false);
     } else {
@@ -114,27 +117,21 @@ export const Navbar: React.FC = () => {
     setAccountDropdownOpen(false);
     setActiveAccountTab(tab);
     setCurrentView('account');
-    if (tab === 'overview') {
-      window.location.hash = '#account';
-    } else {
-      window.location.hash = `#account-${tab}`;
-    }
+    navigateTo('/account');
   };
 
   const handleLogoutClick = () => {
     sounds.playClick();
     setAccountDropdownOpen(false);
     logout();
-    setCurrentView('shop');
-    window.location.hash = '#';
   };
 
   return (
-    <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+    <nav
+      className={`w-full transition-all duration-300 ${
         isScrolled
-          ? 'bg-[#2A050D]/92 backdrop-blur-md border-b border-[#F2C76E]/20 shadow-xl py-3'
-          : 'bg-[#2A050D]/75 backdrop-blur-md border-b border-[#F2C76E]/15 py-4 md:py-5'
+          ? 'bg-[#2A050D]/95 backdrop-blur-md border-b border-[#F2C76E]/20 shadow-xl py-3'
+          : 'bg-[#2A050D]/90 backdrop-blur-md border-b border-[#F2C76E]/15 py-3 sm:py-4 md:py-5'
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
@@ -249,6 +246,25 @@ export const Navbar: React.FC = () => {
                     <p className="text-xs font-bold text-[#52091B] truncate">{currentUser?.fullName || 'Customer'}</p>
                     <p className="text-[11px] text-stone-500 truncate">{currentUser?.email || ''}</p>
                   </div>
+
+                  {/* Admin Dashboard Quick Access if Staff/Admin */}
+                  {isAdmin && (
+                    <div className="px-1.5 pb-1">
+                      <button
+                        id="navbar-admin-dashboard-btn"
+                        onClick={() => {
+                          sounds.playClick();
+                          setAccountDropdownOpen(false);
+                          setCurrentView('admin');
+                          navigateTo('/admin');
+                        }}
+                        className="w-full text-left px-3 py-2 rounded-xl bg-[#F4BD38]/15 hover:bg-[#F4BD38]/25 text-[#52091B] font-bold text-xs flex items-center gap-2 transition-colors cursor-pointer border border-[#F4BD38]/40"
+                      >
+                        <ShieldCheck className="w-4 h-4 text-[#8B1838]" />
+                        <span>Admin Dashboard</span>
+                      </button>
+                    </div>
+                  )}
 
                   {/* Account Links */}
                   <div className="space-y-0.5 px-1.5 text-xs font-medium">
@@ -446,6 +462,23 @@ export const Navbar: React.FC = () => {
               )}
             </button>
 
+            {/* Admin Dashboard in Mobile Menu if Staff/Admin */}
+            {isAdmin && (
+              <button
+                id="mobile-nav-admin-dashboard-btn"
+                onClick={() => {
+                  sounds.playClick();
+                  setMobileMenuOpen(false);
+                  setCurrentView('admin');
+                  navigateTo('/admin');
+                }}
+                className="w-full text-left px-3.5 py-3 text-sm font-bold tracking-wide text-[#F4BD38] hover:bg-[#52091B]/80 rounded-xl transition-colors min-h-[44px] flex items-center gap-2.5 cursor-pointer border border-[#F4BD38]/40 bg-[#52091B]/60"
+              >
+                <ShieldCheck className="w-4 h-4 text-[#F4BD38]" />
+                <span>Admin Dashboard</span>
+              </button>
+            )}
+
             {/* Order Now or Join Waitlist CTA */}
             <div className="pt-3">
               {settings.waitlistMode ? (
@@ -475,6 +508,6 @@ export const Navbar: React.FC = () => {
           </div>
         )}
       </div>
-    </header>
+    </nav>
   );
 };

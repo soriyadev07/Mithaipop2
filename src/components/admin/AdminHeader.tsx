@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useStoreData } from '../../context/StoreDataContext';
 import { BrandLogo } from '../BrandLogo';
 import { sounds } from '../../utils/audio';
+import { navigateTo } from '../../utils/navigation';
 import { 
   Search, 
   X, 
@@ -204,7 +205,7 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
             onClick={() => {
               sounds.playClick();
               setCurrentView('shop');
-              window.location.hash = '#';
+              navigateTo('/', true);
             }}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 hover:text-white text-xs font-bold transition-colors cursor-pointer"
             title="Open customer storefront"

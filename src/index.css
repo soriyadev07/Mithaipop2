@@ -224,3 +224,45 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* =========================================================================
+   WAITLIST FORM INPUT TEXT COLOR FIX (MANDATORY: BLACK TEXT #000000)
+   ========================================================================= */
+.waitlist-input,
+input.waitlist-input,
+select.waitlist-input,
+textarea.waitlist-input {
+  color: #000000 !important;
+  background-color: #FFFFFF !important;
+  font-size: 15px !important;
+}
+
+.waitlist-input::placeholder,
+input.waitlist-input::placeholder,
+textarea.waitlist-input::placeholder {
+  color: #6B7280 !important;
+  opacity: 1 !important;
+}
+
+/* Force black text and white background during browser autofill */
+.waitlist-input:-webkit-autofill,
+.waitlist-input:-webkit-autofill:hover, 
+.waitlist-input:-webkit-autofill:focus,
+input.waitlist-input:-webkit-autofill,
+input.waitlist-input:-webkit-autofill:hover,
+input.waitlist-input:-webkit-autofill:focus,
+select.waitlist-input:-webkit-autofill,
+textarea.waitlist-input:-webkit-autofill {
+  -webkit-text-fill-color: #000000 !important;
+  -webkit-box-shadow: 0 0 0px 1000px #FFFFFF inset !important;
+  box-shadow: 0 0 0px 1000px #FFFFFF inset !important;
+  transition: background-color 5000s ease-in-out 0s;
+  color: #000000 !important;
+}
+
+/* Force black text for dropdown options */
+.waitlist-input option,
+select.waitlist-input option {
+  color: #000000 !important;
+  background-color: #FFFFFF !important;
+}

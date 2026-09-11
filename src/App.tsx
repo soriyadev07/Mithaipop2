@@ -111,11 +111,11 @@ const AppContent: React.FC = () => {
 
       {/* Content Container (Sharp, high-contrast, luminous foreground) */}
       <div className="relative z-10 flex flex-col min-h-screen">
-        {/* Pre-launch Announcement Banner */}
-        <PreLaunchBanner />
-
-        {/* Sticky Header Navigation with Auth link */}
-        <Navbar />
+        {/* Sticky Header Navigation with Pre-launch Banner */}
+        <header className="sticky top-0 z-50 w-full">
+          <PreLaunchBanner />
+          <Navbar />
+        </header>
 
         <main className="flex-1">
           {/* Minimal Luxury Hero Section with floating best-sellers */}

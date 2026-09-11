@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useStoreData } from '../../../context/StoreDataContext';
 import { WaitlistEntry } from '../../../types';
 import { 
@@ -45,6 +45,12 @@ export const AdminWaitlistTab: React.FC = () => {
   const [copiedEmails, setCopiedEmails] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  useEffect(() => {
+    if (reloadWaitlistFromDatabase) {
+      reloadWaitlistFromDatabase();
+    }
+  }, [reloadWaitlistFromDatabase]);
 
   // New manual test entry form state
   const [newTestEntry, setNewTestEntry] = useState({

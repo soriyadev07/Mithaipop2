@@ -104,7 +104,7 @@ export const Hero: React.FC = () => {
   return (
     <section 
       id="hero" 
-      className="relative min-h-[92vh] flex flex-col justify-center items-center pt-24 pb-16 md:pt-28 md:pb-20 overflow-hidden text-[#FFF7E8]"
+      className="relative min-h-[90vh] flex flex-col justify-start sm:justify-center items-center pt-6 sm:pt-10 md:pt-16 pb-12 sm:pb-16 md:pb-20 overflow-hidden text-[#FFF7E8]"
     >
       {/* Floating Dessert Elements (Saffron, Pistachio, Cardamom, Rose) */}
       <FloatingIngredients variant="hero" />
@@ -118,20 +118,20 @@ export const Hero: React.FC = () => {
         {/* 1. TOP / UPPER CENTER: Iconic Mithai Pop Brand Logo & Minimal Tagline     */}
         {/* ========================================================================= */}
         <div 
-          className={`flex flex-col items-center text-center space-y-3 mb-8 md:mb-12 transition-all duration-700 ${
+          className={`flex flex-col items-center text-center space-y-2 sm:space-y-3 mb-6 sm:mb-8 md:mb-12 transition-all duration-700 ${
             loaded ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-6'
           }`}
         >
           {/* Official Mithai Pop Logo */}
-          <div className="transform transition-transform hover:scale-105 duration-300">
+          <div className="transform transition-transform hover:scale-105 duration-300 px-2">
             <BrandLogo variant="hero" centered={true} />
           </div>
 
-          {/* Minimalist Sub-heading */}
-          <p className="text-xs sm:text-sm md:text-base font-medium tracking-[0.2em] uppercase text-[#FFF7E8]/90 font-sans mt-2 flex items-center justify-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#F4BD38] inline-block animate-pulse" />
+          {/* Minimalist Sub-heading / Tagline */}
+          <p className="text-[11px] sm:text-sm md:text-base font-medium tracking-[0.15em] sm:tracking-[0.2em] uppercase text-[#FFF7E8]/90 font-sans mt-2 sm:mt-3 flex items-center justify-center gap-1.5 sm:gap-2 px-2 text-center">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#F4BD38] inline-block animate-pulse shrink-0" />
             <span>Indian flavours. Unexpectedly popped.</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-[#F4BD38] inline-block animate-pulse" />
+            <span className="w-1.5 h-1.5 rounded-full bg-[#F4BD38] inline-block animate-pulse shrink-0" />
           </p>
         </div>
 
@@ -356,7 +356,7 @@ export const Hero: React.FC = () => {
                               handleAddToCart(e, item.id);
                             }
                           }}
-                          className={`px-5 py-2 rounded-full text-xs font-black transition-all flex items-center gap-1.5 shadow-md active:scale-95 btn-shimmer-sheen cursor-pointer ${
+                          className={`px-4 sm:px-5 py-2 rounded-full text-[11px] sm:text-xs font-black transition-all flex items-center gap-1.5 shadow-md active:scale-95 btn-shimmer-sheen cursor-pointer ${
                             settings.waitlistMode
                               ? 'bg-[#F4BD38] text-[#52091B]'
                               : isAdded
@@ -367,7 +367,7 @@ export const Hero: React.FC = () => {
                           {settings.waitlistMode ? (
                             <>
                               <Sparkles className="w-3.5 h-3.5 text-[#52091B]" />
-                              <span>Join the Waitlist</span>
+                              <span>JOIN THE WAITLIST</span>
                             </>
                           ) : isAdded ? (
                             <>
@@ -395,28 +395,29 @@ export const Hero: React.FC = () => {
         {/* 3. PRIMARY HERO CTA & STORY LINK                                         */}
         {/* ========================================================================= */}
         <div 
-          className={`mt-8 sm:mt-10 flex flex-col items-center justify-center gap-3 sm:gap-4 z-20 transition-all duration-700 ${
+          className={`mt-6 sm:mt-8 md:mt-10 flex flex-col items-center justify-center gap-3 sm:gap-4 z-20 transition-all duration-700 w-full px-3 sm:px-4 ${
             loaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'
           }`}
           style={{ transitionDelay: '550ms' }}
         >
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-6 w-full max-w-xs sm:max-w-none">
             {settings.waitlistMode ? (
               <button
+                id="hero-join-waitlist-btn"
                 onClick={() => {
                   sounds.playClick();
                   openWaitlistModal();
                 }}
-                className="group relative bg-gradient-to-r from-[#F4BD38] via-[#F7CD5C] to-[#F4BD38] text-[#52091B] px-8 sm:px-10 py-3.5 sm:py-4 rounded-full text-xs sm:text-sm font-black uppercase tracking-widest shadow-[0_10px_25px_rgba(244,189,56,0.3)] hover:shadow-[0_15px_35px_rgba(244,189,56,0.45)] hover:scale-105 transition-all duration-300 transform active:scale-95 flex items-center gap-3 border border-[#FFF7E8]/40 btn-shimmer-sheen cursor-pointer"
+                className="w-full sm:w-auto group relative bg-gradient-to-r from-[#F4BD38] via-[#F7CD5C] to-[#F4BD38] text-[#52091B] px-6 sm:px-10 py-3.5 sm:py-4 rounded-full text-xs sm:text-sm font-black uppercase tracking-widest shadow-[0_10px_25px_rgba(244,189,56,0.3)] hover:shadow-[0_15px_35px_rgba(244,189,56,0.45)] hover:scale-105 transition-all duration-300 transform active:scale-95 flex items-center justify-center gap-2.5 sm:gap-3 border border-[#FFF7E8]/40 btn-shimmer-sheen cursor-pointer"
               >
-                <Sparkles className="w-4 h-4 text-[#52091B]" />
-                <span>Join the Waitlist</span>
-                <ArrowRight className="w-4 h-4 text-[#52091B] group-hover:translate-x-1 transition-transform" />
+                <Sparkles className="w-4 h-4 text-[#52091B] shrink-0" />
+                <span className="whitespace-nowrap">JOIN THE WAITLIST</span>
+                <ArrowRight className="w-4 h-4 text-[#52091B] group-hover:translate-x-1 transition-transform shrink-0" />
               </button>
             ) : (
               <button
                 onClick={() => scrollToSection('menu')}
-                className="group relative bg-gradient-to-r from-[#F4BD38] via-[#F7CD5C] to-[#F4BD38] text-[#52091B] px-8 sm:px-10 py-3.5 sm:py-4 rounded-full text-xs sm:text-sm font-black uppercase tracking-widest shadow-[0_10px_25px_rgba(244,189,56,0.3)] hover:shadow-[0_15px_35px_rgba(244,189,56,0.45)] hover:scale-105 transition-all duration-300 transform active:scale-95 flex items-center gap-3 border border-[#FFF7E8]/40 btn-shimmer-sheen cursor-pointer"
+                className="w-full sm:w-auto group relative bg-gradient-to-r from-[#F4BD38] via-[#F7CD5C] to-[#F4BD38] text-[#52091B] px-8 sm:px-10 py-3.5 sm:py-4 rounded-full text-xs sm:text-sm font-black uppercase tracking-widest shadow-[0_10px_25px_rgba(244,189,56,0.3)] hover:shadow-[0_15px_35px_rgba(244,189,56,0.45)] hover:scale-105 transition-all duration-300 transform active:scale-95 flex items-center justify-center gap-3 border border-[#FFF7E8]/40 btn-shimmer-sheen cursor-pointer"
               >
                 <span>Explore All Pops</span>
                 <ArrowRight className="w-4 h-4 text-[#52091B] group-hover:translate-x-1 transition-transform" />
@@ -433,8 +434,8 @@ export const Hero: React.FC = () => {
           </div>
 
           {settings.waitlistMode && (
-            <p className="text-[11px] sm:text-xs text-[#FFF7E8]/75 font-medium tracking-wide flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
+            <p className="text-[10px] sm:text-xs text-[#FFF7E8]/75 font-medium tracking-wide flex items-center justify-center gap-1.5 sm:gap-2 text-center">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block shrink-0" />
               <span>Launching Soon across India • Limited First Batch Access</span>
             </p>
           )}

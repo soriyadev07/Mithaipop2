@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Sparkles, CheckCircle2, ArrowRight, ShieldCheck, Phone, Mail, User, MapPin, HelpCircle } from 'lucide-react';
+import { X, Sparkles, CheckCircle2, ArrowRight, ShieldCheck, Phone, Mail, User, MapPin, HelpCircle, AlertCircle } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useStoreData } from '../context/StoreDataContext';
 import { getStoredAttribution } from '../utils/attribution';
@@ -23,6 +23,7 @@ export const WaitlistModal: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [isDuplicate, setIsDuplicate] = useState(false);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ fullName?: string; email?: string; phone?: string }>({});
 
   // Sync preferred flavor when modal opens
@@ -64,6 +65,8 @@ export const WaitlistModal: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmissionError(null);
+
     if (!validate()) {
       sounds.playPop();
       return;
@@ -115,8 +118,10 @@ export const WaitlistModal: React.FC = () => {
         value: 0,
         currency: 'INR',
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error('Waitlist submission failed:', err);
+      sounds.playError();
+      setSubmissionError(err?.message || "We couldn't save your signup right now. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -203,22 +208,46 @@ export const WaitlistModal: React.FC = () => {
                   </div>
                 )}
 
+                {/* Submission Error Banner */}
+                {submissionError && (
+                  <div className="mt-4 p-3.5 bg-red-50 border border-red-200 rounded-2xl flex items-start gap-2.5">
+                    <div className="p-1 rounded-full bg-red-100 text-red-700 shrink-0 mt-0.5">
+                      <AlertCircle className="w-4 h-4" />
+                    </div>
+                    <div className="text-xs flex-1">
+                      <p className="font-bold text-red-900">
+                        We couldn't save your signup right now. Please try again.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleSubmit}
+                        className="mt-1.5 font-bold text-[#7A0F29] hover:text-[#5E0A1E] underline cursor-pointer inline-block"
+                      >
+                        Try Again
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {/* Waitlist Form */}
                 <form onSubmit={handleSubmit} className="mt-5 space-y-4">
                   {/* Full Name */}
                   <div>
-                    <label className="block text-xs font-bold text-[#171316] mb-1">
+                    <label htmlFor="waitlist-input-fullname" className="block text-xs font-bold text-[#171316] mb-1">
                       Full Name <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
-                      <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+                      <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400 pointer-events-none" />
                       <input
                         id="waitlist-input-fullname"
                         type="text"
                         placeholder="e.g. Priya Sharma"
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
-                        className={`w-full pl-10 pr-4 py-2.5 bg-white border ${errors.fullName ? 'border-red-400 bg-red-50/20' : 'border-stone-200'} rounded-xl text-sm focus:outline-none focus:border-[#7A0F29] transition-all`}
+                        style={{ color: '#000000', backgroundColor: '#FFFFFF' }}
+                        className={`waitlist-input w-full pl-10 pr-4 py-2.5 bg-white border ${
+                          errors.fullName ? 'border-red-500' : 'border-stone-300'
+                        } rounded-xl text-sm text-black placeholder:text-[#6B7280] focus:outline-none focus:border-[#7A0F29] focus:ring-1 focus:ring-[#7A0F29] transition-all`}
                       />
                     </div>
                     {errors.fullName && <p className="text-[11px] text-red-600 mt-1 font-medium">{errors.fullName}</p>}
@@ -226,18 +255,21 @@ export const WaitlistModal: React.FC = () => {
 
                   {/* Email Address */}
                   <div>
-                    <label className="block text-xs font-bold text-[#171316] mb-1">
+                    <label htmlFor="waitlist-input-email" className="block text-xs font-bold text-[#171316] mb-1">
                       Email Address <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
-                      <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+                      <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400 pointer-events-none" />
                       <input
                         id="waitlist-input-email"
                         type="email"
                         placeholder="you@example.com"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        className={`w-full pl-10 pr-4 py-2.5 bg-white border ${errors.email ? 'border-red-400 bg-red-50/20' : 'border-stone-200'} rounded-xl text-sm focus:outline-none focus:border-[#7A0F29] transition-all`}
+                        style={{ color: '#000000', backgroundColor: '#FFFFFF' }}
+                        className={`waitlist-input w-full pl-10 pr-4 py-2.5 bg-white border ${
+                          errors.email ? 'border-red-500' : 'border-stone-300'
+                        } rounded-xl text-sm text-black placeholder:text-[#6B7280] focus:outline-none focus:border-[#7A0F29] focus:ring-1 focus:ring-[#7A0F29] transition-all`}
                       />
                     </div>
                     {errors.email && <p className="text-[11px] text-red-600 mt-1 font-medium">{errors.email}</p>}
@@ -245,18 +277,21 @@ export const WaitlistModal: React.FC = () => {
 
                   {/* Mobile Number */}
                   <div>
-                    <label className="block text-xs font-bold text-[#171316] mb-1">
+                    <label htmlFor="waitlist-input-phone" className="block text-xs font-bold text-[#171316] mb-1">
                       Mobile Number <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
-                      <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+                      <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400 pointer-events-none" />
                       <input
                         id="waitlist-input-phone"
                         type="tel"
                         placeholder="+91 98765 43210"
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
-                        className={`w-full pl-10 pr-4 py-2.5 bg-white border ${errors.phone ? 'border-red-400 bg-red-50/20' : 'border-stone-200'} rounded-xl text-sm focus:outline-none focus:border-[#7A0F29] transition-all`}
+                        style={{ color: '#000000', backgroundColor: '#FFFFFF' }}
+                        className={`waitlist-input w-full pl-10 pr-4 py-2.5 bg-white border ${
+                          errors.phone ? 'border-red-500' : 'border-stone-300'
+                        } rounded-xl text-sm text-black placeholder:text-[#6B7280] focus:outline-none focus:border-[#7A0F29] focus:ring-1 focus:ring-[#7A0F29] transition-all`}
                       />
                     </div>
                     {errors.phone && <p className="text-[11px] text-red-600 mt-1 font-medium">{errors.phone}</p>}
@@ -267,32 +302,34 @@ export const WaitlistModal: React.FC = () => {
 
                   {/* City (Optional) */}
                   <div>
-                    <label className="block text-xs font-bold text-[#171316] mb-1">
+                    <label htmlFor="waitlist-input-city" className="block text-xs font-bold text-[#171316] mb-1">
                       City <span className="text-stone-400 font-normal">(Optional)</span>
                     </label>
                     <div className="relative">
-                      <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+                      <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400 pointer-events-none" />
                       <input
                         id="waitlist-input-city"
                         type="text"
                         placeholder="e.g. Mumbai, Delhi, Bengaluru, etc."
                         value={city}
                         onChange={(e) => setCity(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 bg-white border border-stone-200 rounded-xl text-sm text-[#171316] focus:outline-none focus:border-[#7A0F29] transition-all"
+                        style={{ color: '#000000', backgroundColor: '#FFFFFF' }}
+                        className="waitlist-input w-full pl-10 pr-4 py-2.5 bg-white border border-stone-300 rounded-xl text-sm text-black placeholder:text-[#6B7280] focus:outline-none focus:border-[#7A0F29] focus:ring-1 focus:ring-[#7A0F29] transition-all"
                       />
                     </div>
                   </div>
 
                   {/* Favorite Pop Dropdown (Optional) */}
                   <div>
-                    <label className="block text-xs font-bold text-[#171316] mb-1">
+                    <label htmlFor="waitlist-select-favoritepop" className="block text-xs font-bold text-[#171316] mb-1">
                       Which Pop are you most excited to try? <span className="text-stone-400 font-normal">(Optional)</span>
                     </label>
                     <select
                       id="waitlist-select-favoritepop"
                       value={favoritePop}
                       onChange={(e) => setFavoritePop(e.target.value)}
-                      className="w-full px-3.5 py-2.5 bg-white border border-stone-200 rounded-xl text-sm text-[#171316] focus:outline-none focus:border-[#7A0F29] transition-all cursor-pointer"
+                      style={{ color: '#000000', backgroundColor: '#FFFFFF' }}
+                      className="waitlist-input w-full px-3.5 py-2.5 bg-white border border-stone-300 rounded-xl text-sm text-black focus:outline-none focus:border-[#7A0F29] focus:ring-1 focus:ring-[#7A0F29] transition-all cursor-pointer"
                     >
                       <option value="All Flavours / Surprise Me">All Flavours / Surprise Me</option>
                       {products.map((p) => (
@@ -307,16 +344,17 @@ export const WaitlistModal: React.FC = () => {
 
                   {/* How did you hear about us? (Optional) */}
                   <div>
-                    <label className="block text-xs font-bold text-[#171316] mb-1">
+                    <label htmlFor="waitlist-select-referralsource" className="block text-xs font-bold text-[#171316] mb-1">
                       How did you hear about us? <span className="text-stone-400 font-normal">(Optional)</span>
                     </label>
                     <div className="relative">
-                      <HelpCircle className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+                      <HelpCircle className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400 pointer-events-none" />
                       <select
                         id="waitlist-select-referralsource"
                         value={referralSource}
                         onChange={(e) => setReferralSource(e.target.value)}
-                        className="w-full pl-10 pr-3.5 py-2.5 bg-white border border-stone-200 rounded-xl text-sm text-[#171316] focus:outline-none focus:border-[#7A0F29] transition-all cursor-pointer"
+                        style={{ color: '#000000', backgroundColor: '#FFFFFF' }}
+                        className="waitlist-input w-full pl-10 pr-3.5 py-2.5 bg-white border border-stone-300 rounded-xl text-sm text-black focus:outline-none focus:border-[#7A0F29] focus:ring-1 focus:ring-[#7A0F29] transition-all cursor-pointer"
                       >
                         <option value="">Select an option</option>
                         <option value="Instagram">Instagram</option>
@@ -330,7 +368,7 @@ export const WaitlistModal: React.FC = () => {
                   </div>
 
                   {/* Marketing Consent Checkbox */}
-                  <label className="flex items-start gap-2.5 cursor-pointer pt-1">
+                  <label htmlFor="waitlist-checkbox-consent" className="flex items-start gap-2.5 cursor-pointer pt-1">
                     <input
                       id="waitlist-checkbox-consent"
                       type="checkbox"
@@ -348,7 +386,7 @@ export const WaitlistModal: React.FC = () => {
                     id="waitlist-submit-button"
                     type="submit"
                     disabled={isSubmitting}
-                    className="w-full py-3.5 px-6 rounded-2xl bg-[#7A0F29] hover:bg-[#5E0A1E] text-[#FFF7E8] font-bold text-sm tracking-wide uppercase transition-all shadow-md active:scale-98 flex items-center justify-center gap-2 cursor-pointer mt-2"
+                    className="w-full py-3.5 px-6 rounded-2xl bg-[#7A0F29] hover:bg-[#5E0A1E] text-[#FFF7E8] font-bold text-sm tracking-wide uppercase transition-all shadow-md active:scale-98 flex items-center justify-center gap-2 cursor-pointer mt-2 disabled:opacity-75 disabled:cursor-not-allowed"
                   >
                     {isSubmitting ? (
                       <span className="inline-flex items-center gap-2">

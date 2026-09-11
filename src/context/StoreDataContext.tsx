@@ -37,6 +37,11 @@ import {
   mapProductToDbRow,
   generateSlug
 } from '../lib/supabase';
+import {
+  submitWaitlistSignup,
+  fetchAllWaitlistEntries,
+  deleteWaitlistEntryRemote
+} from '../lib/waitlistService';
 
 interface StoreDataContextType {
   orders: OrderConfirmation[];
@@ -1337,82 +1342,42 @@ export const StoreDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const reloadWaitlistFromDatabase = useCallback(async () => {
-    if (!supabase || !isDatabaseConnected) return;
     try {
-      const { data, error } = await supabase
-        .from('waitlist_signups')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        return;
-      }
-
-      if (data && Array.isArray(data)) {
-        const mapped: WaitlistEntry[] = data.map((row: any) => ({
-          id: row.id ? String(row.id) : `wl_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-          fullName: row.full_name || '',
-          email: row.email || '',
-          phone: row.phone || '',
-          city: row.city || undefined,
-          favoritePop: row.favorite_pop || row.preferred_flavor || undefined,
-          preferredFlavor: row.favorite_pop || row.preferred_flavor || undefined,
-          referralSource: row.referral_source || undefined,
-          source: row.source || (row.utm_source ? 'Meta Ads' : 'Direct / Organic'),
-          campaign: row.campaign || row.utm_campaign || 'Website Direct',
-          utmSource: row.utm_source || undefined,
-          utmMedium: row.utm_medium || undefined,
-          utmCampaign: row.utm_campaign || undefined,
-          utmContent: row.utm_content || undefined,
-          utmTerm: row.utm_term || undefined,
-          fbclid: row.fbclid || undefined,
-          consent: Boolean(row.consent),
-          dateJoined: row.created_at || new Date().toISOString()
-        }));
-        setWaitlistEntries(mapped);
+      const entries = await fetchAllWaitlistEntries();
+      if (Array.isArray(entries)) {
+        setWaitlistEntries(entries);
         try {
-          localStorage.setItem('mithai_pop_waitlist', JSON.stringify(mapped));
+          localStorage.setItem('mithai_pop_waitlist', JSON.stringify(entries));
         } catch {}
       }
-    } catch {}
-  }, [isDatabaseConnected]);
+    } catch (err) {
+      console.warn('Could not reload waitlist from database:', err);
+    }
+  }, []);
 
   useEffect(() => {
     reloadWaitlistFromDatabase();
   }, [reloadWaitlistFromDatabase]);
 
   const addWaitlistSignup = async (signupData: Omit<WaitlistEntry, 'id' | 'dateJoined'>): Promise<{ entry: WaitlistEntry; isDuplicate: boolean }> => {
-    const existing = waitlistEntries.find(
-      (w) => w.email.trim().toLowerCase() === signupData.email.trim().toLowerCase()
-    );
-
-    if (existing) {
-      // Update entry with latest attribution or preferred flavor without duplicating
-      const updatedEntry: WaitlistEntry = {
-        ...existing,
-        city: signupData.city || existing.city,
-        favoritePop: signupData.favoritePop || signupData.preferredFlavor || existing.favoritePop,
-        preferredFlavor: signupData.preferredFlavor || signupData.favoritePop || existing.preferredFlavor,
-        referralSource: signupData.referralSource || existing.referralSource,
-        utmSource: signupData.utmSource || existing.utmSource,
-        utmMedium: signupData.utmMedium || existing.utmMedium,
-        utmCampaign: signupData.utmCampaign || existing.utmCampaign,
-        utmContent: signupData.utmContent || existing.utmContent,
-        utmTerm: signupData.utmTerm || existing.utmTerm,
-        fbclid: signupData.fbclid || existing.fbclid,
-      };
-
-      setWaitlistEntries((prev) => prev.map((w) => w.id === existing.id ? updatedEntry : w));
-      return { entry: updatedEntry, isDuplicate: true };
+    // Submit to persistent backend/database first
+    const result = await submitWaitlistSignup(signupData);
+    if (!result.success || !result.entry) {
+      throw new Error(result.error || "We couldn't save your signup right now. Please try again.");
     }
 
-    const newEntry: WaitlistEntry = {
-      ...signupData,
-      id: `wl_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-      dateJoined: new Date().toISOString()
-    };
+    const savedEntry = result.entry;
 
-    setWaitlistEntries((prev) => [newEntry, ...prev]);
+    if (result.isDuplicate) {
+      setWaitlistEntries((prev) =>
+        prev.map((w) => (w.email.trim().toLowerCase() === savedEntry.email.trim().toLowerCase() ? savedEntry : w))
+      );
+    } else {
+      setWaitlistEntries((prev) => [
+        savedEntry,
+        ...prev.filter((w) => w.id !== savedEntry.id && w.email.trim().toLowerCase() !== savedEntry.email.trim().toLowerCase())
+      ]);
+    }
 
     // Add activity log for admin
     const now = new Date();
@@ -1422,10 +1387,10 @@ export const StoreDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       timestamp: formatted,
       adminName: 'Meta Ads Engine',
       adminEmail: 'ads@mithaipop.com',
-      action: `New Waitlist Lead: ${newEntry.fullName} (${newEntry.source})`,
+      action: `New Waitlist Lead: ${savedEntry.fullName} (${savedEntry.source})`,
       targetType: 'customer',
-      targetId: newEntry.id,
-      details: `Pop: ${newEntry.favoritePop || newEntry.preferredFlavor || 'Any'} | City: ${newEntry.city || 'N/A'} | Source: ${newEntry.source}`
+      targetId: savedEntry.id,
+      details: `Pop: ${savedEntry.favoritePop || savedEntry.preferredFlavor || 'Any'} | City: ${savedEntry.city || 'N/A'} | Source: ${savedEntry.source}`
     };
     setActivityLogs((prev) => [log, ...prev]);
 
@@ -1433,7 +1398,7 @@ export const StoreDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       id: `notif_${Date.now()}`,
       target: 'admin',
       title: '🎉 New Waitlist Signup!',
-      message: `${newEntry.fullName} joined waitlist via ${newEntry.source}`,
+      message: `${savedEntry.fullName} joined waitlist via ${savedEntry.source}`,
       type: 'customer',
       read: false,
       createdAt: new Date().toISOString(),
@@ -1441,34 +1406,11 @@ export const StoreDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
     setNotifications((prev) => [notif, ...prev]);
 
-    // Supabase insertion to waitlist_signups
-    if (supabase && isDatabaseConnected) {
-      try {
-        await supabase.from('waitlist_signups').insert([{
-          full_name: newEntry.fullName,
-          email: newEntry.email,
-          phone: newEntry.phone,
-          city: newEntry.city || null,
-          favorite_pop: newEntry.favoritePop || newEntry.preferredFlavor || null,
-          referral_source: newEntry.referralSource || null,
-          utm_source: newEntry.utmSource || null,
-          utm_medium: newEntry.utmMedium || null,
-          utm_campaign: newEntry.utmCampaign || null,
-          utm_content: newEntry.utmContent || null,
-          utm_term: newEntry.utmTerm || null,
-          fbclid: newEntry.fbclid || null,
-          consent: Boolean(newEntry.consent),
-          created_at: newEntry.dateJoined
-        }]);
-      } catch (err) {
-        // Fallback silently if table not yet configured
-      }
-    }
-
-    return { entry: newEntry, isDuplicate: false };
+    return { entry: savedEntry, isDuplicate: result.isDuplicate };
   };
 
-  const deleteWaitlistEntry = (id: string) => {
+  const deleteWaitlistEntry = async (id: string) => {
+    await deleteWaitlistEntryRemote(id);
     setWaitlistEntries((prev) => prev.filter((w) => w.id !== id));
   };
 
